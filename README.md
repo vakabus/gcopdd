@@ -9,4 +9,7 @@ cd graal/compiler
 ../../mx/mx build   # if you have multiple JVM versions, this will fail
                     # and give you hints how to fix it
 ../../mx/mx ideinit
+
+# if you use JetBrains IntelliJ Idea
+../../mx/mx intellijinit
 ```
