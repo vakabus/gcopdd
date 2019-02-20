@@ -8,3 +8,5 @@
  */
 
 rootProject.name = 'gcopdd'
+include ':graal:compiler'
+project(':graal').projectDir = new File(settingsDir, 'graal/')
