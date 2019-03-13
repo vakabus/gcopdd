@@ -4,3 +4,6 @@
 [submodule "graal"]
 	path = graal
 	url = https://github.com/oracle/graal.git
+[submodule "PLuG"]
+	path = PLuG
+	url = https://github.com/rqu/PLuG.git
