@@ -26,7 +26,7 @@ graal.instrumented.jar: graal/compiler/mxbuild blood/build/libs/blood.jar PLuG/d
 
 clean:
 	cd blood; gradle clean
-	cd graal; mx clean
+	cd graal/compiler; mx clean
 	cd PLuG; ant clean
 	rm graal.instrumented.jar
 
@@ -43,4 +43,4 @@ clean-full: clean-graal clean-mx clean-plug
 	rm graal.instrumented.jar
 
 update-deps: clean
-	git submodule update --depth=1
+	git submodule update
