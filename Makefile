@@ -1,5 +1,5 @@
-blood/build/libs/blood.jar:
-	cd blood; gradle build
+blood/build/libs/blood-all.jar:
+	cd blood; gradle shadowJar
 
 graal/.git:
 	git submodule init graal
@@ -16,13 +16,13 @@ PLuG/.git:
 PLuG/dist/PLuG.jar: PLuG/.git
 	cd PLuG; ant
 
-graal/compiler/mxbuild: mx/.git graal/.git
+graal/compiler/mxbuild/dists/jdk11/graal.jar: mx/.git graal/.git
 	cd graal/compiler; ../../mx/mx build; ../../mx/mx ideinit
 	# if you have multiple JVM versions, this will fail
 	# and give you hints how to fix it
 	
-graal.instrumented.jar: graal/compiler/mxbuild blood/build/libs/blood.jar PLuG/dist/PLuG.jar
-	PLuG/plug.sh blood/build/libs/blood.jar --in graal/compiler/mxbuild/dists/jdk11/graal.jar --out graal.instrumented.jar
+graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar blood/build/libs/blood-all.jar PLuG/dist/PLuG.jar
+	PLuG/plug.sh blood/build/libs/blood-all.jar --in graal/compiler/mxbuild/dists/jdk11/graal.jar --out graal.instrumented.jar
 
 clean:
 	cd blood; gradle clean

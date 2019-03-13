@@ -10,23 +10,24 @@ plugins {
     // Apply the java plugin to add support for Java
     id 'java'
 
-    // Apply the application plugin to add support for building an application
-    id 'application'
+    // shadow plugin for bundling libraries into single JAR file
+    id 'com.github.johnrengelman.shadow' version '5.0.0'
 }
 
 repositories {
     // Use jcenter for resolving your dependencies.
     // You can declare any Maven/Ivy/file repository here.
     jcenter()
+
+    flatDir {
+        dirs '../graal/compiler/mxbuild/dists/jdk11/'
+    }
 }
 
 dependencies {
-    // This dependency is found on compile classpath of this component and consumers.
-    implementation 'com.google.guava:guava:27.0.1-jre'
-
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
-}
 
-// Define the main class for the application
-mainClassName = 'cz.cuni.mff.d3s.blood.App'
+    // compile only dependency, so that we can reference internal graal classes
+    compileOnly name: 'graal'
+}
