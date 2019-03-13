@@ -1,5 +1,5 @@
 blood/build/libs/blood-all.jar:
-	cd blood; gradle shadowJar
+	cd blood; ./gradlew shadowJar
 
 graal/.git:
 	git submodule init graal
@@ -25,7 +25,7 @@ graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar blood/build
 	PLuG/plug.sh blood/build/libs/blood-all.jar --in graal/compiler/mxbuild/dists/jdk11/graal.jar --out graal.instrumented.jar
 
 clean:
-	cd blood; gradle clean
+	cd blood; ./gradlew clean
 	cd graal/compiler; mx clean
 	cd PLuG; ant clean
 	rm graal.instrumented.jar
