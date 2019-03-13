@@ -20,7 +20,22 @@ repositories {
     jcenter()
 
     flatDir {
-        dirs '../graal/compiler/mxbuild/dists/jdk11/'
+        dirs '../graal/compiler/mxbuild/dists/jdk11/', '../PLuG/dist'
+    }
+}
+
+jar {
+    manifest {
+        def sourceSet = project.sourceSets.findByName('main').java
+        def classes = sourceSet
+                        .filter { it.path.contains('cz/cuni/mff/d3s/blood/instrumentations') }
+                        .collect {
+                            it.path.substring(it.path.indexOf("cz/cuni/mff/d3s/blood/instrumentations")).replace("/", ".").replace(".java", "")
+                        }
+
+        attributes(
+                "DiSL-Classes": String.join(", ", classes)
+        )
     }
 }
 
@@ -30,4 +45,8 @@ dependencies {
 
     // compile only dependency, so that we can reference internal graal classes
     compileOnly name: 'graal'
+
+    // PLuG so that we can use the instrumentation properly
+    implementation name: 'PLuG'
+
 }
