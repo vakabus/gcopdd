@@ -63,13 +63,15 @@ ifeq (vm,$(firstword $(MAKECMDGOALS)))
   $(eval $(VM_ARGS):;@:)
 endif
 
+build-tests: tests/Fibbonaci.java
+	javac tests/Fibbonaci.java
+
 .PHONY: vm
 vm: graal.instrumented.jar
 	@echo Testing, wheter Java binary is of correct version...
 	java -version 2>&1 | head -n1 | grep version\ \"11 > /dev/null
 	@echo Running Java with instrumented Graal
-	cd graal/compiler; \
-		java -server -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI\
+	java -server -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI\
 		--module-path=graal/sdk/mxbuild/dists/jdk11/graal-sdk.jar:graal/truffle/mxbuild/dists/jdk11/truffle-api.jar\
 		--upgrade-module-path=graal.instrumented.jar:graal/compiler/mxbuild/dists/jdk11/graal-management.jar\
 		${VM_ARGS}
