@@ -2,10 +2,33 @@
 
 = Graal Compiler Optimization Phases Data Dumper
 
-## Building instrumented Graal compiler binary
+## Description of repository structure
 
-Simply run this command, that's all:
+* `graal`, `mx` and `PLuG` subdirectories are dependencies included as submodules
+* `blood` is our code specifying instrumentation. Code from here is compiled and injected into Graal compiler.
+* `tests` contains simple test applications we can test the compiler on
+* `docs` is for documentation
 
+## Dependencies
+
+To use this project, you have to have these tools installed:
+
+* Java 11
+* GNU Make
+* Python 2.7
+
+## Running Java with instrumented Graal compiler
+
+```sh
+make vm -- {JAVA_ARGS}
 ```
-make graal.instrumented.jar
+
+This command can be run in cleanly cloned repository. Everything necessary will be built and in the end executed. When run again without changes to `blood` code, results from last builds will be reused.
+
+## Example
+
+For example, you can run this to print 17th fibbonaci number:
+
+```sh
+make vm -- tests/Fibbonaci.java
 ```
