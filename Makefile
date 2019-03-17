@@ -49,6 +49,7 @@ clean-plug:
 .PHONY: clean-full
 clean-full: clean-graal clean-mx clean-plug
 	rm graal.instrumented.jar
+	cd blood; ./gradlew clean
 
 .PHONY: update-deps
 update-deps: clean
@@ -71,4 +72,5 @@ vm: graal.instrumented.jar
 	java -server -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI\
 		--module-path=graal/sdk/mxbuild/dists/jdk11/graal-sdk.jar:graal/truffle/mxbuild/dists/jdk11/truffle-api.jar\
 		--upgrade-module-path=graal.instrumented.jar:graal/compiler/mxbuild/dists/jdk11/graal-management.jar\
+		-XX:+UseJVMCICompiler\
 		${VM_ARGS}

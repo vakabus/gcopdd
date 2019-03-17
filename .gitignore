@@ -7,3 +7,4 @@ build
 .idea/
 graal.instrumented.jar
 *.class
+graal_dumps/

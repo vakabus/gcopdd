@@ -7,6 +7,10 @@ public class Fibbonaci {
 	}
 
 	public static void main(String[] args) {
-		System.out.println(fib(17));
+		long q = 0;
+		for (int i = 0; i < 10; i++) {
+			q = fib(32);
+		}
+		System.out.println(q);
 	}
 }

@@ -1,21 +1,23 @@
 package cz.cuni.mff.d3s.blood.instrumentations;
 
 import ch.usi.dag.disl.annotation.Before;
+import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
-import ch.usi.dag.disl.processorcontext.ArgumentProcessorContext;
-import ch.usi.dag.disl.processorcontext.ArgumentProcessorMode;
+import org.graalvm.compiler.nodes.StructuredGraph;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
-
-import java.util.stream.Collectors;
 
 public class Apply {
 
 
-    @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
+    /*@Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void beforeApply(ArgumentProcessorContext apc) {
-        System.err.println(repr(apc.getArgs(ArgumentProcessorMode.METHOD_ARGS)));
-    }
+        //System.err.println(repr(apc.getArgs(ArgumentProcessorMode.METHOD_ARGS)));
+    }*/
 
     public static String repr(Object o) {
         if (o == null)
@@ -29,9 +31,15 @@ public class Apply {
         return o.toString();
     }
 
-    @Before(marker = BodyMarker.class)
-    public static void beforeAnyMethod(ArgumentProcessorContext apc) {
-        System.out.println("Neco bezi...");
-    }
+    public static Set<StructuredGraph> GRAPHS = new HashSet<>();
 
+
+    @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
+    public static void beforePhaseRun(DynamicContext di) {
+        Object thiz = di.getThis();
+        StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
+
+        System.err.printf("%-80s uses Graph which was %s before\n", String.format("[ %s ]", thiz.getClass().getCanonicalName()), GRAPHS.contains(graph) ? "  SEEN  " : "NOT SEEN");
+        GRAPHS.add(graph);
+    }
 }
