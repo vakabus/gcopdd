@@ -63,9 +63,6 @@ ifeq (vm,$(firstword $(MAKECMDGOALS)))
   $(eval $(VM_ARGS):;@:)
 endif
 
-build-tests: tests/Fibbonaci.java
-	javac tests/Fibbonaci.java
-
 .PHONY: vm
 vm: graal.instrumented.jar
 	@echo Testing, wheter Java binary is of correct version...

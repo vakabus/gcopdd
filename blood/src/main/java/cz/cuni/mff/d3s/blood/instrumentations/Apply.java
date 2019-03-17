@@ -29,4 +29,9 @@ public class Apply {
         return o.toString();
     }
 
+    @Before(marker = BodyMarker.class)
+    public static void beforeAnyMethod(ArgumentProcessorContext apc) {
+        System.out.println("Neco bezi...");
+    }
+
 }
