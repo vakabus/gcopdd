@@ -20,7 +20,8 @@ To use this project, you have to have these tools installed:
 ## Running Java with instrumented Graal compiler
 
 ```sh
-make vm -- {JAVA_ARGS}
+make build
+./vm {JAVA_ARGS}
 ```
 
 This command can be run in cleanly cloned repository. Everything necessary will be built and in the end executed. When run again without changes to `blood` code, results from last builds will be reused.
@@ -30,5 +31,5 @@ This command can be run in cleanly cloned repository. Everything necessary will 
 For example, you can run this to print 17th fibbonaci number:
 
 ```sh
-make vm -- tests/Fibbonaci.java
+./vm tests/Fibbonaci.java
 ```

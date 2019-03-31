@@ -30,7 +30,7 @@ build: graal.instrumented.jar
 .PHONY: clean
 clean:
 	cd blood; ./gradlew clean
-	cd graal/compiler; mx clean
+	cd graal/compiler; ../../mx/mx clean
 	cd PLuG; ant clean
 	rm graal.instrumented.jar
 
@@ -53,7 +53,7 @@ clean-full: clean-graal clean-mx clean-plug
 
 .PHONY: update-deps
 update-deps: clean
-	git submodule update
+	git submodule foreach git pull origin master
 
 # source: https://stackoverflow.com/questions/2214575/passing-arguments-to-make-run#14061796
 # If the first argument is "vm"...
@@ -66,11 +66,7 @@ endif
 
 .PHONY: vm
 vm: graal.instrumented.jar
-	@echo Testing, wheter Java binary is of correct version...
-	java -version 2>&1 | head -n1 | grep version\ \"11 > /dev/null
-	@echo Running Java with instrumented Graal
-	java -server -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI\
-		--module-path=graal/sdk/mxbuild/dists/jdk11/graal-sdk.jar:graal/truffle/mxbuild/dists/jdk11/truffle-api.jar\
-		--upgrade-module-path=graal.instrumented.jar:graal/compiler/mxbuild/dists/jdk11/graal-management.jar\
-		-XX:+UseJVMCICompiler\
-		${VM_ARGS}
+	@echo -e "\e[01;31m" >&2
+	@echo 'This command is deprecated! Use standalone `./vm` script instead.' >&2
+	@echo -e "\e[0m" >&2
+	./vm ${VM_ARGS}
