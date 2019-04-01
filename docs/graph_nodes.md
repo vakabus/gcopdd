@@ -1,10 +1,22 @@
-# Nodes of Graal's internal graph
+# Nodes of Graal's internal graph IR
+
+Graph is represented as a list of nodes. There are no actual edges, they are implemented just as references between nodes. Edges can be of two types - data flow edges that go backwards (point to source) or control flow edges, that go forwards (point to successor). These relations are defined using custom annotations in the source code. Graal is able to read them and provide an interface for walking the graph in all possible directions. It automatically manages links that go the otherway, so that it is possible to iterate over usages of an assignment.
+
+The graph represents an IR in SSA form. There is no special asssignment node, all nodes can be used as an assignment.
+
+**WARNING:** There is also another IR used in Graal. It's called LIR and it's used pretty much only for register allocation and platform specific low-level optimizations. It does not follow anything described here.
 
 ## Implementation details
 
 * All nodes inherit from one single abstract parent `org.graalvm.compiler.graph.Node`
 * `Node` class implements `org.graalvm.compiler.graph.NodeInterface`, which allows you to call `Node asNode()` function on any `Node` object
   * reason why it's there is not clear to me right now, maybe just to avoid ugly casting
+* two types of nodes
+  * FixedNodes
+    * their control flow is fixed, they have defined predecessor and/or successor
+  * FloatingNodes
+    * only data dependencies are defined, otherwise can be moved anywhere
+* Graal supports custom nodes used as plugins. Those nodes can then lower to predefined nodes using snippets. However, those snippets are specialized and partially evaluated.
 
 ## How do optimization phases interact with Graph?
 
