@@ -1,5 +1,7 @@
 # GCOPDD
 
+![Travis CI Status](https://travis-ci.org/vakabus/gcopdd.svg?branch=master)
+
 = Graal Compiler Optimization Phases Data Dumper
 
 ## Description of repository structure
