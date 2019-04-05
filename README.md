@@ -16,6 +16,7 @@ To use this project, you have to have these tools installed:
 * Java 11
 * GNU Make
 * Python 2.7
+* Gradle 5.0.0 or newer
 
 ## Running Java with instrumented Graal compiler
 
