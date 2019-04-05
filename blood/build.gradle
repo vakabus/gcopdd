@@ -47,6 +47,6 @@ dependencies {
     compileOnly name: 'graal'
 
     // PLuG so that we can use the instrumentation properly
-    implementation name: 'PLuG'
+    compileOnly name: 'PLuG'
 
 }
