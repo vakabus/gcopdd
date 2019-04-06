@@ -14,4 +14,13 @@ public final class DependencyValue {
         count += nodesSeen;
         totalCount += nodesTotal;
     }
+    
+    @Override
+    public String toString() {
+        return count+":"+totalCount+":"+iterations;
+    }
+    
+    public static String toStringS(DependencyValue dv) {
+        return dv == null ? "0:0:0" : dv.toString();
+    }
 }

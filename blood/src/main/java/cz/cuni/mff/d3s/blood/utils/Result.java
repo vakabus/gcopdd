@@ -68,4 +68,19 @@ public final class Result<Success,Error> {
     public Error unwrapError() {
         return expectError("unwrapError failed!");
     }
+
+    @FunctionalInterface
+    public static interface Function<T, R> extends java.util.function.Function<T, Result<R, Exception>> {
+
+        R checkedApply(T t) throws Exception;
+
+        @Override
+        default Result<R, Exception> apply(T t) {
+            try {
+                return Result.success(checkedApply(t));
+            } catch (Exception e) {
+                return Result.error(e);
+            }
+        }
+    }
 }
