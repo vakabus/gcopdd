@@ -1,5 +1,12 @@
+ifeq ($(CI), true)
+ $(info Running in CI, using Gradle wrapper...)
+ GRADLE=./gradlew
+else
+ GRADLE=gradle
+endif
+
 blood/build/libs/blood-all.jar: $(shell find blood/src/)
-	cd blood; gradle shadowJar
+	cd blood; ${GRADLE} shadowJar
 
 graal/.git:
 	git submodule init graal
@@ -29,7 +36,7 @@ build: graal.instrumented.jar
 
 .PHONY: clean
 clean:
-	cd blood; gradle clean
+	cd blood; ${GRADLE} clean
 	cd graal/compiler; ../../mx/mx clean
 	cd PLuG; ant clean
 	rm graal.instrumented.jar
@@ -49,7 +56,7 @@ clean-plug:
 .PHONY: clean-full
 clean-full: clean-graal clean-mx clean-plug
 	rm graal.instrumented.jar
-	cd blood; gradle clean
+	cd blood; ${GRADLE} clean
 
 .PHONY: update-deps
 update-deps: clean
