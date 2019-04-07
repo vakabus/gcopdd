@@ -1,6 +1,9 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 public final class DependencyValue {
+
+    public static final DependencyValue ZERO = new DependencyValue();
+
     private long count = 0;
     private long totalCount = 0;
     private long iterations = 0;
@@ -14,13 +17,9 @@ public final class DependencyValue {
         count += nodesSeen;
         totalCount += nodesTotal;
     }
-    
+
     @Override
     public String toString() {
-        return count+":"+totalCount+":"+iterations;
-    }
-    
-    public static String toStringS(DependencyValue dv) {
-        return dv == null ? "0:0:0" : dv.toString();
+        return count + ":" + totalCount + ":" + iterations;
     }
 }

@@ -11,10 +11,12 @@ import org.graalvm.compiler.nodes.StructuredGraph;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -22,23 +24,41 @@ import org.graalvm.compiler.phases.BasePhase;
 
 public final class DependencyMatrixCollector {
 
-    private static final Predicate<Object> NON_NULL = Predicate.isEqual(null).negate();
-
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
-    static ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+    private static final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+
+    /**
+     * getValue.apply(rowKey).apply(columnKey) returns DependencyValue. Returns
+     * value from matrix. If it encounters a null on the way, returns
+     * {@link DependencyValue#ZERO}.
+     */
+    private static final Function<Class, Function<Class, DependencyValue>> getValue = class1 -> {
+        final var row = dependencyTable.get(class1);
+        return (row == null)
+                ? class2 -> DependencyValue.ZERO
+                : class2 -> row.getOrDefault(class2, DependencyValue.ZERO);
+    };
 
     public static void init() {
         // make sure, that Graal will track node creation position
         var props = System.getProperties();
         props.setProperty("debug.graal.TrackNodeCreationPosition", "true");
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             dump();
         }, "dump at exit"));
     }
 
     private static Result<StackTraceElement[], String> getCreationStackTrace(Node node) {
+        // node.getCreationPosition() returns an instance of class
+        // NodeCreationStackTrace, which is a subclass of NodeStackTrace.
+        // Unfortunately, both are package-private and we don't have access to
+        // them. But we can store them in variables using the reflection API.
+        // The variable is of type Object, but always contains
+        // a NodeCreationStackTrace.
+
         Object /*NodeCreationStackTrace*/ position = node.getCreationPosition();
         if (position == null) {
             // this happens surprisingly often
@@ -79,7 +99,7 @@ public final class DependencyMatrixCollector {
                 if (traceResult.isOk()) {
                     Arrays.stream(traceResult.unwrap())
                             .map(StackTraceElement::getClassName)
-                            .map((Result.Function<String, Class>) classLoader::loadClass)
+                            .map((Result.CheckedFunction<String, Class>) classLoader::loadClass)
                             .filter(Result::isOk) // could not be loaded => probably JVM-internal class
                             .map(Result::unwrap)
                             .filter(BasePhase.class::isAssignableFrom)
@@ -126,8 +146,8 @@ public final class DependencyMatrixCollector {
     private static void dump() {
         // FIXME race condition
         // graal apparently doesn't stop compiling before this shutdown hook gets called
-        
-        Date started = new Date();
+
+        Instant started = Instant.now();
 
         final HashSet<Class> keys = new HashSet<>(HASHMAP_INIT_CAPACITY);
         dependencyTable.forEachEntry(1, entry -> {
@@ -142,7 +162,7 @@ public final class DependencyMatrixCollector {
             // superclasses from itself up to java.lang.Object.
             Arrays.stream(keysOrder)
                     .map(clazz
-                            -> Stream.iterate(clazz, NON_NULL, Class::getSuperclass)
+                            -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
                             .map(Class::getName)
                             .collect(Collectors.joining(" ", "", "\n"))
                     )
@@ -154,11 +174,11 @@ public final class DependencyMatrixCollector {
             // Dependency matrix. Lines correspond to rows.
             // Items in a row are separated by spaces.
             Arrays.stream(keysOrder)
-                    .map(dependencyTable::get)
-                    .map(row
+                    .map(getValue)
+                    .map(getValueFromCurrentRow
                             -> Arrays.stream(keysOrder)
-                            .map(row == null ? x -> null : row::get)
-                            .map(DependencyValue::toStringS)
+                            .map(getValueFromCurrentRow)
+                            .map(DependencyValue::toString)
                             .collect(Collectors.joining(" ", "", "\n"))
                     )
                     .forEachOrdered((CheckedConsumer<String>) out::append);
@@ -166,9 +186,12 @@ public final class DependencyMatrixCollector {
             throw new RuntimeException(e);
         }
 
-        Date finished = new Date();
-        long timeDiff = finished.getTime() - started.getTime();
-        System.getLogger(DependencyMatrixCollector.class.getName())
-                .log(System.Logger.Level.INFO, "Dump finished in {0} ms", timeDiff);
+        Instant finished = Instant.now();
+        Duration duration = Duration.between(started, finished);
+        System.getLogger(DependencyMatrixCollector.class.getName()).log(
+                System.Logger.Level.INFO,
+                "Dependency matrix dump finished in {0} ms",
+                duration.toMillis()
+        );
     }
 }
