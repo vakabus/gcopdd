@@ -1,6 +1,7 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
+import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
 import cz.cuni.mff.d3s.blood.utils.Result;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -42,13 +43,31 @@ public final class DependencyMatrixCollector {
     };
 
     public static void init() {
-        // make sure, that Graal will track node creation position
-        var props = System.getProperties();
-        props.setProperty("debug.graal.TrackNodeCreationPosition", "true");
-
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             dump();
         }, "dump at exit"));
+    }
+
+    public static void forceTrackCreationPosition() {
+        try {
+            // we want to change this static final field to true:
+            // org.graalvm.compiler.graph.Node.TRACK_CREATION_POSITION
+
+            // obtain reflection of the field we want to change
+            Field trackCreationPosition = Node.class.getField("TRACK_CREATION_POSITION");
+
+            // make the field accessible to reflection
+            trackCreationPosition.setAccessible(true);
+
+            // remove the `final` modifier, so that we can change its value
+            Miscellaneous.makeNonFinal(trackCreationPosition);
+
+            // do the actual change to its value
+            trackCreationPosition.setBoolean(null, true);
+        } catch (Exception ex) {
+            // don't use advanced features here, this is called from a static init block
+            System.err.println(ex);
+        }
     }
 
     private static Result<StackTraceElement[], String> getCreationStackTrace(Node node) {

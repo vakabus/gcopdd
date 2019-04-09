@@ -31,6 +31,11 @@ public class DependencyMatrixCollectorInject {
         DependencyMatrixCollector.prePhase(graph, thiz.getClass());
     }
 
+    @After(marker = BodyMarker.class, scope = "void Node.<clinit>()")
+    public static void afterNodeClinit() {
+        DependencyMatrixCollector.forceTrackCreationPosition();
+    }
+
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void afterPhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
