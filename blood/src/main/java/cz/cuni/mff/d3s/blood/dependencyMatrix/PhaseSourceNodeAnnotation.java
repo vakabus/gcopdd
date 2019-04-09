@@ -5,5 +5,9 @@ public final class PhaseSourceNodeAnnotation {
         this.source = source;
     }
 
-    Class<?> source;
+    public Class<?> getSource() {
+        return source;
+    }
+
+    final Class<?> source;
 }

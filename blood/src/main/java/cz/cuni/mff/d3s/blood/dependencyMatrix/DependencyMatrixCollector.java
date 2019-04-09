@@ -2,31 +2,29 @@ package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
 import cz.cuni.mff.d3s.blood.utils.Result;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.lang.reflect.Field;
+import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.graalvm.compiler.phases.BasePhase;
 
 public final class DependencyMatrixCollector {
 
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
+    private static final AtomicBoolean collect = new AtomicBoolean(true);
     private static final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
 
     /**
@@ -42,119 +40,80 @@ public final class DependencyMatrixCollector {
     };
 
     public static void init() {
-        // make sure, that Graal will track node creation position
-        var props = System.getProperties();
-        props.setProperty("debug.graal.TrackNodeCreationPosition", "true");
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            dump();
-        }, "dump at exit"));
+        // register shutdown hook for dumping data
+        Runtime.getRuntime().addShutdownHook(new Thread(DependencyMatrixCollector::dump, "dump at exit"));
     }
 
-    private static Result<StackTraceElement[], String> getCreationStackTrace(Node node) {
-        // node.getCreationPosition() returns an instance of class
-        // NodeCreationStackTrace, which is a subclass of NodeStackTrace.
-        // Unfortunately, both are package-private and we don't have access to
-        // them. But we can store them in variables using the reflection API.
-        // The variable is of type Object, but always contains
-        // a NodeCreationStackTrace.
-
-        Object /*NodeCreationStackTrace*/ position = node.getCreationPosition();
-        if (position == null) {
-            // this happens surprisingly often
-            return Result.error("Node creation position is null!");
-        }
-
-        try {
-            Class NodeCreationStackTrace = position.getClass();
-            Class NodeStackTrace = NodeCreationStackTrace.getSuperclass();
-            Field stackTraceField = NodeStackTrace.getDeclaredField("stackTrace");
-            stackTraceField.setAccessible(true);
-            StackTraceElement[] stackTrace = (StackTraceElement[]) stackTraceField.get(position);
-            return Result.success(stackTrace);
-        } catch (IllegalAccessException | NoSuchFieldException e) {
-            StringWriter stringWriter = new StringWriter();
-            e.printStackTrace(new PrintWriter(stringWriter));
-            return Result.error("getCreationStackTrace failed:\n" + stringWriter.toString() + "\n");
-        }
-    }
-
-    @SuppressWarnings("CallToPrintStackTrace")
     public static void prePhase(StructuredGraph graph, Class<?> sourceClass) {
-        ClassLoader classLoader = sourceClass.getClassLoader();
+        // don't do anything, when not supposed to
+        if (!collect.get()) return;
 
+        // obtain row in result matrix for this particular optimization phase
         var row = dependencyTable.get(sourceClass);
         if (row == null) {
-            // FIXME race condition
             row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
-            dependencyTable.put(sourceClass, row);
+            dependencyTable.putIfAbsent(sourceClass, row);
         }
-        // "local variables referenced from a lambda expression must be final or effectively final"
-        final var rowf = row;
 
-        try {
-            for (var node : graph.getNodes()) {
-                Result<StackTraceElement[], String> traceResult = getCreationStackTrace(node);
-
-                if (traceResult.isOk()) {
-                    Arrays.stream(traceResult.unwrap())
-                            .map(StackTraceElement::getClassName)
-                            .map((Result.CheckedFunction<String, Class>) classLoader::loadClass)
-                            .filter(Result::isOk) // could not be loaded => probably JVM-internal class
-                            .map(Result::unwrap)
-                            .filter(BasePhase.class::isAssignableFrom)
-                            .findFirst()
-                            .ifPresentOrElse(creationClass -> {
-                                //System.out.println(creationClass.getName());
-                                DependencyValue value = rowf.get(creationClass);
-                                if (value == null) {
-                                    // FIXME race condition
-                                    value = new DependencyValue();
-                                    rowf.put(creationClass, value);
-                                }
-                                // TODO: do something that is actually useful
-                                value.update(2, 3);
-                            }, () -> {
-                                // created in no phase - for example during construction of the graph
-                            });
-
-                    //Arrays.stream(traceResult.unwrap()).forEachOrdered(stackTraceElement -> System.out.println(stackTraceElement.getMethodName()));
-                    //System.out.println();
-                } else {
-                    // had to comment this out, see getCreationStackTrace
-                    //System.out.println(traceResult.unwrapError());
-                }
+        // for each node in the graph entering the phase, note down where it was created
+        for (var node : graph.getNodes()) {
+            var creationPhase = getCreationPhase(node);
+            if (creationPhase.isError()) {
+                // FIXME do something more meaningful with missing source
+                // this happends only when the graph is first loaded
+                System.err.println(creationPhase.unwrapError());
+                continue;
             }
 
-        } catch (Throwable e) {
-            // FIXME
-            // this syncblock is here to serialize output
-            synchronized (DependencyMatrixCollector.class) {
-                System.err.println("prePhase function failed in DependencyMatrixCollector due to:");
-                e.printStackTrace();
-                System.err.println();
+            DependencyValue value = row.get(creationPhase.unwrap());
+            if (value == null) {
+                value = new DependencyValue();
+                row.putIfAbsent(creationPhase.unwrap(), value);
             }
+
+            value.update(1, 1);
         }
     }
 
     public static void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        // here we wanted to mark every created node as created here
-        // currently, that's unnecessary, because we are using Graal's
-        // own creation tracking
+        // don't do anything, when not supposed to
+        if (!collect.get()) return;
+
+        // mark all nodes without any creation annotation as created in this phase
+        for (Node node : graph.getNodes()) {
+            if (getCreationPhase(node).isError()) {
+                setCreationPhase(node, sourceClass);
+            }
+        }
+    }
+
+    private static Result<Class<?>, String> getCreationPhase(Node node) {
+        try {
+            Method getNodeInfo = Node.class.getDeclaredMethod("getNodeInfo", Class.class);
+            getNodeInfo.setAccessible(true);
+            PhaseSourceNodeAnnotation source = (PhaseSourceNodeAnnotation) getNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class);
+            if (source != null)
+                return Result.success(source.getSource());
+            else
+                return Result.error("Creation phase was null");
+
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            StringWriter stringWriter = new StringWriter();
+            e.printStackTrace(new PrintWriter(stringWriter));
+            return Result.error("getCreationPhase failed:\n" + stringWriter.toString() + "\n");
+        }
     }
 
     private static void dump() {
-        // FIXME race condition
-        // graal apparently doesn't stop compiling before this shutdown hook gets called
-
         Instant started = Instant.now();
 
-        final HashSet<Class> keys = new HashSet<>(HASHMAP_INIT_CAPACITY);
-        dependencyTable.forEachEntry(1, entry -> {
-            keys.add(entry.getKey());
-            entry.getValue().forEachKey(1, keys::add);
-        });
-        final Class[] keysOrder = keys.toArray(new Class[keys.size()]);
+        // disable data collection, because compiler runs even during shutdown
+        collect.set(false);
+
+        // collect all phase classes
+        final Class[] keysOrder = (Class[]) dependencyTable.entrySet().stream().flatMap(entry ->
+                Stream.concat(Stream.of(entry.getKey()), entry.getValue().keySet().stream())
+        ).toArray();
 
         try (final OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream("/tmp/gcopdd-depmat"))) {
             // List of classes in the order that is used in the matrix below.
@@ -193,5 +152,16 @@ public final class DependencyMatrixCollector {
                 "Dependency matrix dump finished in {0} ms",
                 duration.toMillis()
         );
+    }
+
+    private static void setCreationPhase(Node node, Class<?> phaseClass) {
+        try {
+            Method setNodeInfo = Node.class.getDeclaredMethod("setNodeInfo", Class.class, Object.class);
+            setNodeInfo.setAccessible(true);
+            setNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class, new PhaseSourceNodeAnnotation(phaseClass));
+
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
     }
 }
