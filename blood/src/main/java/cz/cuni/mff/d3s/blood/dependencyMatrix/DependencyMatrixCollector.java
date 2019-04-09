@@ -118,9 +118,9 @@ public final class DependencyMatrixCollector {
         collect.set(false);
 
         // collect all phase classes
-        final Class[] keysOrder = (Class[]) dependencyTable.entrySet().stream().flatMap(entry ->
+        final Class[] keysOrder = dependencyTable.entrySet().stream().flatMap(entry ->
                 Stream.concat(Stream.of(entry.getKey()), entry.getValue().keySet().stream())
-        ).toArray();
+        ).toArray(i -> new Class[i]);
 
         try (final OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream("/tmp/gcopdd-depmat"))) {
             // List of classes in the order that is used in the matrix below.
