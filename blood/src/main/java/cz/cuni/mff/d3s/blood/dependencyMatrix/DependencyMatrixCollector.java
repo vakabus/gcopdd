@@ -38,11 +38,21 @@ public final class DependencyMatrixCollector {
                 : class2 -> row.getOrDefault(class2, DependencyValue.ZERO);
     };
 
+    /**
+     * This function is called by the instrumentation during compiler initialization
+     */
     public static void init() {
         // register shutdown hook for dumping data
         Runtime.getRuntime().addShutdownHook(new Thread(DependencyMatrixCollector::dump, "dump at exit"));
     }
 
+    /**
+     * This function is called by the instrumentation before every optimization phase run. More specifically,
+     * before calling {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
+     *
+     * @param graph Graph entering the optimization phase
+     * @param sourceClass Class of the optimization phase running
+     */
     public static void prePhase(StructuredGraph graph, Class<?> sourceClass) {
         // don't do anything, when not supposed to
         if (!collect.get()) return;
@@ -59,7 +69,7 @@ public final class DependencyMatrixCollector {
             var creationPhase = getCreationPhase(node);
             if (creationPhase.isError()) {
                 // FIXME do something more meaningful with missing source
-                // this happends only when the graph is first loaded
+                // this happens only when the graph is first loaded
                 System.err.println(creationPhase.unwrapError());
                 continue;
             }
@@ -70,10 +80,22 @@ public final class DependencyMatrixCollector {
                 row.putIfAbsent(creationPhase.unwrap(), value);
             }
 
-            value.update(1, 1);
+            value.update(1, 0);
+        }
+
+        // update total node counts for all tracked values
+        for (var value : row.values()) {
+            value.update(0, graph.getNodeCount());
         }
     }
 
+    /**
+     * This function is called by the instrumentation after every optimization phase run. More specifically,
+     * after calling {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
+     *
+     * @param graph Graph representing IL after being processed by the optimization phase
+     * @param sourceClass Class of the running optimization phase
+     */
     public static void postPhase(StructuredGraph graph, Class<?> sourceClass) {
         // don't do anything, when not supposed to
         if (!collect.get()) return;
@@ -86,6 +108,9 @@ public final class DependencyMatrixCollector {
         }
     }
 
+    /**
+     * Method called on JVM exit dumping collected statistics.
+     */
     private static void dump() {
         Instant started = Instant.now();
 

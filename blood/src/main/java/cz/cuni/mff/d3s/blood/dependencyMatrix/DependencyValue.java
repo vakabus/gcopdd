@@ -12,6 +12,11 @@ public final class DependencyValue {
         return ((double) count) / ((double) totalCount);
     }
 
+    /**
+     * Update the counters. Used when nodes are seen.
+     * @param nodesSeen How many tracked nodes were seen just now, how many we should add to their count.
+     * @param nodesTotal How many nodes at all have been seen.
+     */
     public void update(long nodesSeen, long nodesTotal) {
         iterations++;
         count += nodesSeen;
