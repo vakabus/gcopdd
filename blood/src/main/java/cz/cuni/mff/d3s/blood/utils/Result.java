@@ -87,7 +87,7 @@ public final class Result<Success, Error> {
      * @param <R> the type of the result of the function
      */
     @FunctionalInterface
-    public static interface CheckedFunction<T, R> extends Function<T, Result<R, Exception>> {
+    public interface CheckedFunction<T, R> extends Function<T, Result<R, Exception>> {
 
         /**
          * This is the method that is to be implemented by the lambda function.

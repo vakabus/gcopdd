@@ -11,7 +11,6 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -87,23 +86,6 @@ public final class DependencyMatrixCollector {
         }
     }
 
-    private static Result<Class<?>, String> getCreationPhase(Node node) {
-        try {
-            Method getNodeInfo = Node.class.getDeclaredMethod("getNodeInfo", Class.class);
-            getNodeInfo.setAccessible(true);
-            PhaseSourceNodeAnnotation source = (PhaseSourceNodeAnnotation) getNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class);
-            if (source != null)
-                return Result.success(source.getSource());
-            else
-                return Result.error("Creation phase was null");
-
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            StringWriter stringWriter = new StringWriter();
-            e.printStackTrace(new PrintWriter(stringWriter));
-            return Result.error("getCreationPhase failed:\n" + stringWriter.toString() + "\n");
-        }
-    }
-
     private static void dump() {
         Instant started = Instant.now();
 
@@ -152,6 +134,23 @@ public final class DependencyMatrixCollector {
                 "Dependency matrix dump finished in {0} ms",
                 duration.toMillis()
         );
+    }
+
+    private static Result<Class<?>, String> getCreationPhase(Node node) {
+        try {
+            Method getNodeInfo = Node.class.getDeclaredMethod("getNodeInfo", Class.class);
+            getNodeInfo.setAccessible(true);
+            PhaseSourceNodeAnnotation source = (PhaseSourceNodeAnnotation) getNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class);
+            if (source != null)
+                return Result.success(source.getSource());
+            else
+                return Result.error("Creation phase was null");
+
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            StringWriter stringWriter = new StringWriter();
+            e.printStackTrace(new PrintWriter(stringWriter));
+            return Result.error("getCreationPhase failed:\n" + stringWriter.toString() + "\n");
+        }
     }
 
     private static void setCreationPhase(Node node, Class<?> phaseClass) {

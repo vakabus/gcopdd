@@ -1,6 +1,8 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 public final class PhaseSourceNodeAnnotation {
+    final Class<?> source;
+
     public PhaseSourceNodeAnnotation(Class<?> source) {
         this.source = source;
     }
@@ -8,6 +10,4 @@ public final class PhaseSourceNodeAnnotation {
     public Class<?> getSource() {
         return source;
     }
-
-    final Class<?> source;
 }
