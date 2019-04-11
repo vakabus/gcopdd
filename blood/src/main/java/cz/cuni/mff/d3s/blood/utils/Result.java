@@ -80,8 +80,9 @@ public final class Result<Success, Error> {
      * This is an extension to the functional api. It allows your lambda
      * function to throw an exception, that will be eventually caught and
      * returned as Result.error. If the lambda function returns normally, the
-     * returned value will be wrapped in Result.success. {@link java.lang.Error}s and
-     * other non-{@link Exception} {@link Throwable}s are not caught.
+     * returned value will be wrapped in Result.success.
+     * {@link java.lang.Error}s and other
+     * non-{@link Exception} {@link Throwable}s are not caught.
      *
      * @param <T> the type of the input to the function
      * @param <R> the type of the result of the function
