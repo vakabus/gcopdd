@@ -1,32 +1,33 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 public final class DependencyValue {
 
     public static final DependencyValue ZERO = new DependencyValue();
 
-    private long count = 0;
-    private long totalCount = 0;
-    private long iterations = 0;
+    private AtomicLong count = new AtomicLong(0);
+    private AtomicLong totalCount = new AtomicLong(0);
+    private AtomicLong iterations = new AtomicLong(0);
 
     public double getPercent() {
-        return ((double) count) / ((double) totalCount);
+        return ((double) count.get()) / ((double) totalCount.get());
     }
 
-    /**
-     * Update the counters. Used when nodes are seen.
-     *
-     * @param nodesSeen How many tracked nodes were seen just now, how many we
-     * should add to their count.
-     * @param nodesTotal How many nodes at all have been seen.
-     */
-    public void update(long nodesSeen, long nodesTotal) {
-        iterations++;
-        count += nodesSeen;
-        totalCount += nodesTotal;
+    public void incrementNumberOfSeenNodes(long nodesSeen) {
+        count.addAndGet(nodesSeen);
+    }
+
+    public void incrementTotalNumberOfNodesSeen(long nodesTotal) {
+        totalCount.addAndGet(nodesTotal);
+    }
+
+    public void incrementPhaseCounter() {
+        iterations.incrementAndGet();
     }
 
     @Override
     public String toString() {
-        return count + ":" + totalCount + ":" + iterations;
+        return count.get() + ":" + totalCount.get() + ":" + iterations.get();
     }
 }

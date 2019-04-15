@@ -1,11 +1,12 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
+import org.graalvm.compiler.graph.Node;
+import org.graalvm.compiler.nodes.StructuredGraph;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import org.graalvm.compiler.nodes.StructuredGraph;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -15,15 +16,11 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.graalvm.compiler.graph.Node;
 
 public final class DependencyMatrixCollector {
 
-    private static DependencyMatrixCollector instance = null;
-
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
-
     /**
      * The maximum number of threads that can write to the matrix at once. This
      * number should be large enough to allow potentially all the JVM CI threads
@@ -31,7 +28,7 @@ public final class DependencyMatrixCollector {
      * `MAX_WRITERS`-times is still effective.
      */
     private static final int MAX_WRITERS = 128;
-
+    private static DependencyMatrixCollector instance = null;
     /**
      * The number of threads that are currently writing to the dependency
      * matrix. This is not used to serialize accesses to the matrix, but to
@@ -81,7 +78,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph entering the optimization phase
+     * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -118,12 +115,13 @@ public final class DependencyMatrixCollector {
                 value = row.get(creationPhase);
             }
 
-            value.update(1, 0);
+            value.incrementNumberOfSeenNodes(1);
         }
 
         // update total node counts for all tracked values
         for (var value : row.values()) {
-            value.update(0, graph.getNodeCount());
+            value.incrementTotalNumberOfNodesSeen(graph.getNodeCount());
+            value.incrementPhaseCounter();
         }
 
         writers.release();
@@ -134,8 +132,8 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph representing IL after being processed by the
-     * optimization phase
+     * @param graph       Graph representing IL after being processed by the
+     *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
