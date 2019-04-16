@@ -8,3 +8,5 @@ build
 graal.instrumented.jar
 *.class
 graal_dumps/
+dumps/
+scratch/
