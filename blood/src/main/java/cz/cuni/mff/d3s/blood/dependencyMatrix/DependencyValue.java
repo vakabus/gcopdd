@@ -18,6 +18,7 @@ public final class DependencyValue {
         count.addAndGet(nodesSeen);
     }
 
+    // FIXME redundant information, can be moved ouside (potential performance issue)
     public void incrementTotalNumberOfNodesSeen(long nodesTotal) {
         totalCount.addAndGet(nodesTotal);
     }

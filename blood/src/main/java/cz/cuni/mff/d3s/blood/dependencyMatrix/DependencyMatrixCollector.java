@@ -12,6 +12,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -21,21 +24,16 @@ public final class DependencyMatrixCollector {
 
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
-    /**
-     * The maximum number of threads that can write to the matrix at once. This
-     * number should be large enough to allow potentially all the JVM CI threads
-     * to write, but small enough so that calling {@link Semaphore#acquire()}
-     * `MAX_WRITERS`-times is still effective.
-     */
-    private static final int MAX_WRITERS = 128;
+
     private static DependencyMatrixCollector instance = null;
     /**
-     * The number of threads that are currently writing to the dependency
-     * matrix. This is not used to serialize accesses to the matrix, but to
-     * disable writing to it when it is being dumped. This is achieved by
-     * acquiring all the permits in the dump method.
+     * Multiple threads are writing to the result matrix at once. That's fine.
+     * However, in the end, we want to dump the data and nobody should be writing
+     * at that time. We can achieve this kind of locking by using {@link ReadWriteLock}
+     * in the opposite way, than it was designed. Lock for reading, when we are writing.
+     * Lock for writing, when we are reading.
      */
-    private final Semaphore writers = new Semaphore(Integer.MAX_VALUE, true);
+    private final ReadWriteLock writers = new ReentrantReadWriteLock();
 
     private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
 
@@ -82,49 +80,56 @@ public final class DependencyMatrixCollector {
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
-        if (!writers.tryAcquire()) {
+        Lock readLock = writers.readLock();
+        if (readLock.tryLock()) {
             // Dump is already in progress, don't change the matrix any more.
             return;
         }
 
-        // obtain row in result matrix for this particular optimization phase
-        var row = dependencyTable.get(sourceClass);
-        if (row == null) {
-            row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
-            dependencyTable.putIfAbsent(sourceClass, row);
-            row = dependencyTable.get(sourceClass);
-        }
+        try {
 
-        // for each node in the graph entering the phase, note down where it was created
-        for (Node node : graph.getNodes()) {
-            var creationPhaseResult = nodeTracker.getCreationPhase(node);
-
-            if (creationPhaseResult.isError()) {
-                // FIXME do something more meaningful with missing source
-                // this happens only when the graph is first loaded
-                System.err.println(creationPhaseResult.unwrapError());
-                continue;
+            // obtain row in result matrix for this particular optimization phase
+            var row = dependencyTable.get(sourceClass);
+            if (row == null) {
+                row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+                dependencyTable.putIfAbsent(sourceClass, row);
+                row = dependencyTable.get(sourceClass);
             }
 
-            var creationPhase = creationPhaseResult.unwrap();
+            // for each node in the graph entering the phase, note down where it was created
+            for (Node node : graph.getNodes()) {
+                var creationPhaseResult = nodeTracker.getCreationPhase(node);
 
-            DependencyValue value = row.get(creationPhase);
-            if (value == null) {
-                value = new DependencyValue();
-                row.putIfAbsent(creationPhase, value);
-                value = row.get(creationPhase);
+                if (creationPhaseResult.isError()) {
+                    // FIXME do something more meaningful with missing source
+                    // this happens only when the graph is first loaded
+                    System.err.println(creationPhaseResult.unwrapError());
+                    continue;
+                }
+
+                var creationPhase = creationPhaseResult.unwrap();
+
+                DependencyValue value = row.get(creationPhase);
+                if (value == null) {
+                    value = new DependencyValue();
+                    row.putIfAbsent(creationPhase, value);
+                    value = row.get(creationPhase);
+                }
+
+                value.incrementNumberOfSeenNodes(1);
             }
 
-            value.incrementNumberOfSeenNodes(1);
+            // update total node counts for all tracked values
+            for (var value : row.values()) {
+                value.incrementTotalNumberOfNodesSeen(graph.getNodeCount());
+                value.incrementPhaseCounter();
+            }
+
+        } finally {
+            // don't forget to unlock the lock
+            readLock.unlock();
         }
 
-        // update total node counts for all tracked values
-        for (var value : row.values()) {
-            value.incrementTotalNumberOfNodesSeen(graph.getNodeCount());
-            value.incrementPhaseCounter();
-        }
-
-        writers.release();
     }
 
     /**
@@ -144,54 +149,57 @@ public final class DependencyMatrixCollector {
      * Method called on JVM exit dumping collected statistics.
      */
     private void dump() {
-        // Hog all the permits so that nobody can run if dump runs.
-        for (int i = 0; i < MAX_WRITERS; i++) {
-            writers.acquireUninterruptibly();
+        // Block, so that nobody can write to the matrix.
+        Lock writeLock = writers.writeLock();
+        writeLock.lock();
+
+        try {
+            Instant started = Instant.now();
+
+            // collect all phase classes
+            final Class[] keysOrder = dependencyTable.entrySet().stream().flatMap(entry
+                    -> Stream.concat(Stream.of(entry.getKey()), entry.getValue().keySet().stream())
+            ).collect(Collectors.toSet()).toArray(i -> new Class[i]);
+
+            try (final OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream("/tmp/gcopdd-depmat"))) {
+                // List of classes in the order that is used in the matrix below.
+                // Each line contains space-separated list of the class's
+                // superclasses from itself up to java.lang.Object.
+                Arrays.stream(keysOrder)
+                        .map(clazz
+                                -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
+                                .map(Class::getName)
+                                .collect(Collectors.joining(" ", "", "\n"))
+                        )
+                        .forEachOrdered((CheckedConsumer<String>) out::append);
+
+                // Empty line.
+                out.append('\n');
+
+                // Dependency matrix. Lines correspond to rows.
+                // Items in a row are separated by spaces.
+                Arrays.stream(keysOrder)
+                        .map(getValue)
+                        .map(getValueFromCurrentRow
+                                -> Arrays.stream(keysOrder)
+                                .map(getValueFromCurrentRow)
+                                .map(DependencyValue::toString)
+                                .collect(Collectors.joining(" ", "", "\n"))
+                        )
+                        .forEachOrdered((CheckedConsumer<String>) out::append);
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            Instant finished = Instant.now();
+            Duration duration = Duration.between(started, finished);
+            System.getLogger(DependencyMatrixCollector.class.getName()).log(
+                    System.Logger.Level.INFO,
+                    "Dependency matrix dump finished in {0} ms",
+                    duration.toMillis()
+            );
+        } finally {
+            writeLock.unlock();
         }
-
-        Instant started = Instant.now();
-
-        // collect all phase classes
-        final Class[] keysOrder = dependencyTable.entrySet().stream().flatMap(entry
-                -> Stream.concat(Stream.of(entry.getKey()), entry.getValue().keySet().stream())
-        ).collect(Collectors.toSet()).toArray(i -> new Class[i]);
-
-        try (final OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream("/tmp/gcopdd-depmat"))) {
-            // List of classes in the order that is used in the matrix below.
-            // Each line contains space-separated list of the class's
-            // superclasses from itself up to java.lang.Object.
-            Arrays.stream(keysOrder)
-                    .map(clazz
-                            -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
-                            .map(Class::getName)
-                            .collect(Collectors.joining(" ", "", "\n"))
-                    )
-                    .forEachOrdered((CheckedConsumer<String>) out::append);
-
-            // Empty line.
-            out.append('\n');
-
-            // Dependency matrix. Lines correspond to rows.
-            // Items in a row are separated by spaces.
-            Arrays.stream(keysOrder)
-                    .map(getValue)
-                    .map(getValueFromCurrentRow
-                            -> Arrays.stream(keysOrder)
-                            .map(getValueFromCurrentRow)
-                            .map(DependencyValue::toString)
-                            .collect(Collectors.joining(" ", "", "\n"))
-                    )
-                    .forEachOrdered((CheckedConsumer<String>) out::append);
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        Instant finished = Instant.now();
-        Duration duration = Duration.between(started, finished);
-        System.getLogger(DependencyMatrixCollector.class.getName()).log(
-                System.Logger.Level.INFO,
-                "Dependency matrix dump finished in {0} ms",
-                duration.toMillis()
-        );
     }
 }
