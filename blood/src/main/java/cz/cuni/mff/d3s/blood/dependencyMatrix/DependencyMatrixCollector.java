@@ -33,7 +33,7 @@ public final class DependencyMatrixCollector {
      * in the opposite way, than it was designed. Lock for reading, when we are writing.
      * Lock for writing, when we are reading.
      */
-    private final ReadWriteLock writers = new ReentrantReadWriteLock();
+    private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
     private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
 
@@ -81,7 +81,7 @@ public final class DependencyMatrixCollector {
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
         Lock readLock = writers.readLock();
-        if (readLock.tryLock()) {
+        if (!readLock.tryLock()) {
             // Dump is already in progress, don't change the matrix any more.
             return;
         }
