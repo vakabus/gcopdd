@@ -10,3 +10,5 @@ graal.instrumented.jar
 graal_dumps/
 dumps/
 scratch/
+__pycache__
+

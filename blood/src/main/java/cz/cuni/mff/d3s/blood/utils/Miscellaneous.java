@@ -3,7 +3,16 @@ package cz.cuni.mff.d3s.blood.utils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-public class Miscellaneous {
+public final class Miscellaneous {
+
+    /**
+     * Disabling creation of instances of this class.
+     *
+     * @throws UnsupportedOperationException always
+     */
+    private Miscellaneous() throws UnsupportedOperationException {
+        throw new UnsupportedOperationException("Cannot instantiate this class");
+    }
 
     /**
      * Makes a field non-final using an ugly hack.

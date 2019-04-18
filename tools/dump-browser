@@ -1,0 +1,18 @@
+#!/bin/bash -e
+
+tools_dir="`dirname "$0"`"
+dumps_dir="$tools_dir/../dumps"
+
+cd "$dumps_dir"
+
+case "$#:$1" in
+	(0:)
+		../tools/dump_browser.py
+		;;
+	(1:start)
+		nohup ../tools/dump_browser.py > /dev/null 2> /dev/null &
+		;;
+	(1:stop)
+		killall dump_browser.py
+		;;
+esac

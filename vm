@@ -11,5 +11,5 @@ java -server -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCI\
 	--module-path=graal/sdk/mxbuild/dists/jdk11/graal-sdk.jar:graal/truffle/mxbuild/dists/jdk11/truffle-api.jar\
 	--upgrade-module-path=graal.instrumented.jar:graal/compiler/mxbuild/dists/jdk11/graal-management.jar\
 	-XX:+UseJVMCICompiler\
-	--add-opens java.base/java.lang.reflect=jdk.internal.vm.compiler\
+	--add-opens=java.base/java.lang.reflect=jdk.internal.vm.compiler\
 	"$@"

@@ -1,17 +1,17 @@
 package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
+import cz.cuni.mff.d3s.blood.utils.Dumping;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -35,11 +35,10 @@ public final class DependencyMatrixCollector {
      */
     private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
+    private final ConcurrentLinkedDeque<Class<?>> phaseOrder = new ConcurrentLinkedDeque<>();
     private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
-
     // TODO make this configurable, also works with `new DefaultNodeTracker()`
     private final NodeTracker nodeTracker = new CustomNodeTracker();
-
     /**
      * getValue.apply(rowKey).apply(columnKey) returns DependencyValue. Returns
      * value from matrix. If it encounters a null on the way, returns
@@ -51,6 +50,11 @@ public final class DependencyMatrixCollector {
                 ? class2 -> DependencyValue.ZERO
                 : class2 -> row.getOrDefault(class2, DependencyValue.ZERO);
     };
+
+    {
+        phaseOrder.add(NodeTracker.NoPhaseDummy.class);
+        phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
+    }
 
     public static DependencyMatrixCollector getInstance() {
         if (instance == null) {
@@ -91,6 +95,9 @@ public final class DependencyMatrixCollector {
             // obtain row in result matrix for this particular optimization phase
             var row = dependencyTable.get(sourceClass);
             if (row == null) {
+                // to save the order of phase discovery
+                phaseOrder.add(sourceClass);
+
                 row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
                 dependencyTable.putIfAbsent(sourceClass, row);
                 row = dependencyTable.get(sourceClass);
@@ -101,8 +108,6 @@ public final class DependencyMatrixCollector {
                 var creationPhaseResult = nodeTracker.getCreationPhase(node);
 
                 if (creationPhaseResult.isError()) {
-                    // FIXME do something more meaningful with missing source
-                    // this happens only when the graph is first loaded
                     System.err.println(creationPhaseResult.unwrapError());
                     continue;
                 }
@@ -157,11 +162,9 @@ public final class DependencyMatrixCollector {
             Instant started = Instant.now();
 
             // collect all phase classes
-            final Class[] keysOrder = dependencyTable.entrySet().stream().flatMap(entry
-                    -> Stream.concat(Stream.of(entry.getKey()), entry.getValue().keySet().stream())
-            ).collect(Collectors.toSet()).toArray(i -> new Class[i]);
+            final Class[] keysOrder = phaseOrder.toArray(i -> new Class[i]);
 
-            try (final OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream("/tmp/gcopdd-depmat"))) {
+            try (final Writer out = Dumping.getDumpFileWriter("depmat")) {
                 // List of classes in the order that is used in the matrix below.
                 // Each line contains space-separated list of the class's
                 // superclasses from itself up to java.lang.Object.
