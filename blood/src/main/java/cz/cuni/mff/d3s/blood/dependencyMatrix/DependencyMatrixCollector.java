@@ -28,10 +28,10 @@ public final class DependencyMatrixCollector {
     private static DependencyMatrixCollector instance = null;
     /**
      * Multiple threads are writing to the result matrix at once. That's fine.
-     * However, in the end, we want to dump the data and nobody should be writing
-     * at that time. We can achieve this kind of locking by using {@link ReadWriteLock}
-     * in the opposite way, than it was designed. Lock for reading, when we are writing.
-     * Lock for writing, when we are reading.
+     * However, in the end, we want to dump the data and nobody should be
+     * writing at that time. We can achieve this kind of locking by using
+     * {@link ReadWriteLock} in the opposite way, than it was designed. Lock for
+     * reading, when we are writing. Lock for writing, when we are reading.
      */
     private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
@@ -80,7 +80,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph       Graph entering the optimization phase
+     * @param graph Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -142,8 +142,8 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph       Graph representing IL after being processed by the
-     *                    optimization phase
+     * @param graph Graph representing IL after being processed by the
+     * optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {

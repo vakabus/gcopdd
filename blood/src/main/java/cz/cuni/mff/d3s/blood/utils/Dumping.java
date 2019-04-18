@@ -5,10 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
-import java.util.regex.Pattern;
 
 /**
  * Utility methods for dumping.

@@ -6,9 +6,9 @@ public final class DependencyValue {
 
     public static final DependencyValue ZERO = new DependencyValue();
 
-    private AtomicLong count = new AtomicLong(0);
-    private AtomicLong totalCount = new AtomicLong(0);
-    private AtomicLong iterations = new AtomicLong(0);
+    private final AtomicLong count = new AtomicLong(0);
+    private final AtomicLong totalCount = new AtomicLong(0);
+    private final AtomicLong iterations = new AtomicLong(0);
 
     public double getPercent() {
         return ((double) count.get()) / ((double) totalCount.get());
