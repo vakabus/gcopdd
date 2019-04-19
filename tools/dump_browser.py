@@ -32,7 +32,7 @@ def listdumps():
 
 
 def newestdump():
-	return min(listdumps(), key=lambda dump: dump.date)
+	return max(listdumps(), key=lambda dump: dump.date)
 
 
 def get_dump_dict():
