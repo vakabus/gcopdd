@@ -6,11 +6,20 @@ from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import import_module
 from threading import Thread
+from shutil import copyfileobj
 import traceback
 import re
 
 
 PATH_PATTERN = re.compile('/([^./?]+)\.([^./?]+)\.([^./?]+)')
+
+
+STYLESHEET = b"""
+	table.simple-border, table.simple-border td, table.simple-border th {
+		border: solid 1px black;
+		border-collapse: collapse;
+	}
+"""
 
 
 DumpDict = namedtuple('DumpDict', ['by_test', 'by_type'])
@@ -86,7 +95,7 @@ def default_view(file, dump, params):
 
 def html_dump(dump, params):
 	try:
-		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title></head><body>' % dump_name(dump)
+		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title><link rel="stylesheet" href="s.css"></head><body>' % dump_name(dump)
 
 		dumps = get_dump_dict()
 		yield '<div style="position: absolute; top: 0; bottom: 0; right: 0; width: 16em; overflow: auto"><div style="margin: 1em">'
@@ -133,6 +142,13 @@ class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.end_headers()
 			self.wfile.write(b'Stopping')
 			Thread(target=self.server.shutdown).start()
+			return
+
+		if file == '/s.css':
+			self.send_response(200)
+			self.send_header('Content-Type', 'text/css')
+			self.end_headers()
+			self.wfile.write(STYLESHEET)
 			return
 
 		mo = PATH_PATTERN.fullmatch(file)
