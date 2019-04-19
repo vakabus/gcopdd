@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 
 from collections import namedtuple, OrderedDict
-from os import listdir
+from os import listdir, path
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import import_module
+from threading import Thread
 import traceback
 import re
 
@@ -16,15 +17,13 @@ DumpDict = namedtuple('DumpDict', ['by_test', 'by_type'])
 Dump = namedtuple('Dump', ['test', 'date', 'type'])
 
 
-LI_A = '<li><a href="/%s">%s</a></li>'
-LI_A_NONEX = '<li><a href="/%s" style="color: darkred">%s</a></li>'
-
-
-dump_name = ".".join
+dump_name = '.'.join
 
 
 def listdumps():
 	for name in listdir():
+		if path.isdir(name):
+			continue
 		try:
 			yield Dump(*name.split('.'))
 		except TypeError:
@@ -58,9 +57,9 @@ def get_dump_dict():
 
 def html_link(dump, text, existing):
 	if dump in existing:
-		yield LI_A % (dump_name(dump), text)
+		yield '<li><a href="%s">%s</a></li>' % (dump_name(dump), text)
 	else:
-		yield LI_A_NONEX % (dump_name(dump), text)
+		yield '<li><a href="%s" style="color: darkred">%s</a></li>' % (dump_name(dump), text)
 
 
 def html_by_test(by_test, current_dump):
@@ -78,33 +77,34 @@ def html_by_type(by_type, current_dump):
 	yield '</ul>'
 
 
-def html_dump(current_dump):
-	def default_view(file):
-		yield '<div style="border: solid 2px black">No viewer for %r found.</div>' % current_dump.type
-		yield '<pre style="background-color: lightgray">'
-		yield escape(file.read())
-		yield '</pre>'
+def default_view(file, dump, params):
+	yield '<div style="border: solid 2px black">No viewer for %r found.</div>' % dump.type
+	yield '<pre style="background-color: lightgray">'
+	yield escape(file.read())
+	yield '</pre>'
 
+
+def html_dump(dump, params):
 	try:
-		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title></head><body>' % dump_name(current_dump)
+		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title></head><body>' % dump_name(dump)
 
 		dumps = get_dump_dict()
 		yield '<div style="position: absolute; top: 0; bottom: 0; right: 0; width: 16em; overflow: auto"><div style="margin: 1em">'
-		yield from html_by_test(dumps.by_test, current_dump)
+		yield from html_by_test(dumps.by_test, dump)
 		yield '<hr>'
-		yield from html_by_type(dumps.by_type, current_dump)
+		yield from html_by_type(dumps.by_type, dump)
 		yield '</div></div>'
 
 		yield '<div style="position: absolute; left: 0; top: 0; bottom: 0; right: 16em; overflow: auto"><div style="margin: 1em">'
 		try:
-			with open(dump_name(current_dump)) as file:
+			with open(dump_name(dump)) as file:
 				try:
-					view = import_module('viewers.' + current_dump.type).view
+					view = import_module('viewers.' + dump.type).view
 				except ImportError:
 					view = default_view
-				yield from view(file)
+				yield from view(file, dump, params)
 		except FileNotFoundError:
-			yield '<div style="border: solid 2px black">Dump %r not found.</div>' % dump_name(current_dump)
+			yield '<div style="border: solid 2px black">Dump %r not found.</div>' % dump_name(dump)
 		yield '</div></div>'
 
 		yield '</body></html>'
@@ -113,23 +113,43 @@ def html_dump(current_dump):
 		traceback.print_exc()
 
 
-
 class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
-		if self.path == '/':
-			self.send_response(302)
-			self.send_header("Location", self.absolute(dump_name(newestdump())))
-			self.end_headers()
+		if '?' in self.path:
+			file, params_str = self.path.split('?', 1)
+		else:
+			file, params_str = self.path, ''
+		params = dict(param.split('=', 1) for param in params_str.split('&') if '=' in param)
 
-		mo = PATH_PATTERN.fullmatch(self.path)
+		if file == '/':
+			self.send_response(302)
+			self.send_header('Location', self.absolute(dump_name(newestdump()) + '?index'))
+			self.end_headers()
+			return
+
+		if file == '/STOP':
+			self.send_response(200)
+			self.send_header('Content-Type', 'text/plain')
+			self.end_headers()
+			self.wfile.write(b'Stopping')
+			Thread(target=self.server.shutdown).start()
+			return
+
+		mo = PATH_PATTERN.fullmatch(file)
 		if mo:
 			self.send_response(200)
-			self.send_header("Content-Type", "text/html")
+			self.send_header('Content-Type', 'text/html')
 			self.end_headers()
-			self.wfile.writelines(bytes(line, "utf-8") for line in html_dump(Dump(*mo.group(1, 2, 3))))
+			self.wfile.writelines(bytes(line, 'utf-8') for line in html_dump(Dump(*mo.group(1, 2, 3)), params))
+			return
+
+		self.send_response(400)
+		self.send_header('Content-Type', 'text/plain')
+		self.end_headers()
+		self.wfile.write(b'Invalid URL')
 
 	def absolute(self, s):
-		return "http://" + self.headers["Host"] + "/" + s
+		return 'http://' + self.headers['Host'] + '/' + s
 
 
 HTTPServer(('localhost', 8000), DumpBrowserHTTPRequestHandler).serve_forever()

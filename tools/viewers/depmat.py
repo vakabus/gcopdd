@@ -54,7 +54,7 @@ def html_legend(classes):
 	yield '</ol>'
 
 
-def view(lines_n):
+def view(lines_n, dump, params):
 	classes = []
 
 	# remove '\n' characters

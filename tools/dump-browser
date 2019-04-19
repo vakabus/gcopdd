@@ -5,14 +5,27 @@ dumps_dir="$tools_dir/../dumps"
 
 cd "$dumps_dir"
 
-case "$#:$1" in
-	(0:)
-		../tools/dump_browser.py
-		;;
-	(1:start)
-		nohup ../tools/dump_browser.py > /dev/null 2> /dev/null &
-		;;
-	(1:stop)
-		killall dump_browser.py
-		;;
-esac
+cmd_0() {
+	../tools/dump_browser.py
+}
+
+cmd_1start() {
+	nohup ../tools/dump_browser.py > /dev/null 2> /dev/null &
+}
+
+cmd_1stop() {
+	wget -o /dev/null -O /dev/null 'http://localhost:8000/STOP'
+}
+
+cmd_1save() {
+	cmd_1start
+	[ -e html ] && rm -rf html
+	mkdir html
+	# wait until server starts
+	while ! wget -o /dev/null -O /dev/null 'http://localhost:8000/'; do :; done
+	# recursive download to dumps/html/
+	wget -o /dev/null -r --convert-links -P html -E -nH 'http://localhost:8000/'
+	cmd_1stop
+}
+
+"cmd_$#$1"
