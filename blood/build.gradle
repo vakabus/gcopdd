@@ -36,7 +36,7 @@ def make_config = {
         def start = lines.findIndexOf { it.startsWith("/**") }
         def end = lines.findIndexOf { it.startsWith(" */") }
 
-        def docString = "\n" + lines[start..end].stream().map { "# " + it }.collect(Collectors.joining("\n"))
+        def docString = "\n" + lines[start+1..end-1].stream().map { "# " + it.strip().replaceFirst("\\* ", "") }.collect(Collectors.joining("\n"))
         if (end == -1 || start == -1) docString = ""
         return docString + "\n" + it.path.substring(it.path.indexOf("cz/cuni/mff/d3s/blood/instrumentations")).replace("/", ".").replace(".java", "")
     }
