@@ -1,13 +1,15 @@
-package cz.cuni.mff.d3s.blood.dependencyMatrix;
+package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
+import cz.cuni.mff.d3s.blood.report.Report;
+import cz.cuni.mff.d3s.blood.report.dump.ManualDump;
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
-import cz.cuni.mff.d3s.blood.utils.Dumping;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,7 +23,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class DependencyMatrixCollector {
-
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
@@ -56,6 +57,11 @@ public final class DependencyMatrixCollector {
         phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
     }
 
+    public DependencyMatrixCollector() {
+        // register hook for dumping data
+        Report.getInstance().registerDump(new ManualDump("depmat", this::dump));
+    }
+
     public static DependencyMatrixCollector getInstance() {
         if (instance == null) {
             instance = new DependencyMatrixCollector();
@@ -68,9 +74,6 @@ public final class DependencyMatrixCollector {
      * initialized.
      */
     public final void onNodeClassInit() {
-        // register shutdown hook for dumping data
-        Runtime.getRuntime().addShutdownHook(new Thread(this::dump, "dump at exit"));
-
         // initialize everything needed by the node tracker implementation
         nodeTracker.onNodeClassInit();
     }
@@ -80,7 +83,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph entering the optimization phase
+     * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -142,8 +145,8 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph representing IL after being processed by the
-     * optimization phase
+     * @param graph       Graph representing IL after being processed by the
+     *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -153,56 +156,51 @@ public final class DependencyMatrixCollector {
     /**
      * Method called on JVM exit dumping collected statistics.
      */
-    private void dump() {
+    private byte[] dump() {
         // Block, so that nobody can write to the matrix.
         Lock writeLock = writers.writeLock();
         writeLock.lock();
-
+        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         try {
-            Instant started = Instant.now();
+            Writer out = new OutputStreamWriter(outBytes);
 
             // collect all phase classes
             final Class[] keysOrder = phaseOrder.toArray(i -> new Class[i]);
 
-            try (final Writer out = Dumping.getDumpFileWriter("depmat")) {
-                // List of classes in the order that is used in the matrix below.
-                // Each line contains space-separated list of the class's
-                // superclasses from itself up to java.lang.Object.
-                Arrays.stream(keysOrder)
-                        .map(clazz
-                                -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
-                                .map(Class::getName)
-                                .collect(Collectors.joining(" ", "", "\n"))
-                        )
-                        .forEachOrdered((CheckedConsumer<String>) out::append);
+            // List of classes in the order that is used in the matrix below.
+            // Each line contains space-separated list of the class's
+            // superclasses from itself up to java.lang.Object.
+            Arrays.stream(keysOrder)
+                    .map(clazz
+                            -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
+                            .map(Class::getName)
+                            .collect(Collectors.joining(" ", "", "\n"))
+                    )
+                    .forEachOrdered((CheckedConsumer<String>) out::append);
 
-                // Empty line.
-                out.append('\n');
+            // Empty line.
+            out.append('\n');
 
-                // Dependency matrix. Lines correspond to rows.
-                // Items in a row are separated by spaces.
-                Arrays.stream(keysOrder)
-                        .map(getValue)
-                        .map(getValueFromCurrentRow
-                                -> Arrays.stream(keysOrder)
-                                .map(getValueFromCurrentRow)
-                                .map(DependencyValue::toString)
-                                .collect(Collectors.joining(" ", "", "\n"))
-                        )
-                        .forEachOrdered((CheckedConsumer<String>) out::append);
-            } catch (final IOException e) {
-                throw new RuntimeException(e);
-            }
+            // Dependency matrix. Lines correspond to rows.
+            // Items in a row are separated by spaces.
+            Arrays.stream(keysOrder)
+                    .map(getValue)
+                    .map(getValueFromCurrentRow
+                            -> Arrays.stream(keysOrder)
+                            .map(getValueFromCurrentRow)
+                            .map(DependencyValue::toString)
+                            .collect(Collectors.joining(" ", "", "\n"))
+                    )
+                    .forEachOrdered((CheckedConsumer<String>) out::append);
+
 
             Instant finished = Instant.now();
-            Duration duration = Duration.between(started, finished);
-            System.getLogger(DependencyMatrixCollector.class.getName()).log(
-                    System.Logger.Level.INFO,
-                    "Dependency matrix dump finished in {0} ms",
-                    duration.toMillis()
-            );
+        } catch (IOException e) {
+            throw new RuntimeException("This never happends, because no IO is involved.", e);
         } finally {
             writeLock.unlock();
         }
+
+        return outBytes.toByteArray();
     }
 }

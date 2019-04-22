@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.utils;
+package cz.cuni.mff.d3s.blood.report;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,14 +11,14 @@ import java.util.Scanner;
 /**
  * Utility methods for dumping.
  */
-public final class Dumping {
+public final class DumpHelpers {
 
     /**
      * Disabling creation of instances of this class.
      *
      * @throws UnsupportedOperationException always
      */
-    private Dumping() throws UnsupportedOperationException {
+    private DumpHelpers() throws UnsupportedOperationException {
         throw new UnsupportedOperationException("Cannot instantiate this class");
     }
 
