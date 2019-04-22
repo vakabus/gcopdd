@@ -26,12 +26,9 @@ repositories {
 
 jar {
     manifest {
-        def sourceSet = project.sourceSets.findByName('main').java
-        def classes = sourceSet
-                        .filter { it.path.contains('cz/cuni/mff/d3s/blood/instrumentations') }
-                        .collect {
-                            it.path.substring(it.path.indexOf("cz/cuni/mff/d3s/blood/instrumentations")).replace("/", ".").replace(".java", "")
-                        }
+        def classes = new File('config').text.split('\n').stream()
+                        .filter { !it.startsWith('#') && !it.empty }
+                        .collect { 'cz.cuni.mff.d3s.blood.instrumentations.' + it + 'Inject' }
 
         attributes(
                 "DiSL-Classes": String.join(", ", classes)
@@ -47,6 +44,6 @@ dependencies {
     compileOnly name: 'graal'
 
     // PLuG so that we can use the instrumentation properly
-    implementation name: 'PLuG'
+    compileOnly name: 'PLuG'
 
 }

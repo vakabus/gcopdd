@@ -1,5 +1,12 @@
+ifeq ($(CI), true)
+ $(info Running in CI, using Gradle wrapper...)
+ GRADLE=./gradlew
+else
+ GRADLE=gradle
+endif
+
 blood/build/libs/blood-all.jar: $(shell find blood/src/)
-	cd blood; ./gradlew shadowJar
+	cd blood; ${GRADLE} shadowJar
 
 graal/.git:
 	git submodule init graal
@@ -29,7 +36,7 @@ build: graal.instrumented.jar
 
 .PHONY: clean
 clean:
-	cd blood; ./gradlew clean
+	cd blood; ${GRADLE} clean
 	cd graal/compiler; ../../mx/mx clean
 	cd PLuG; ant clean
 	rm graal.instrumented.jar
@@ -49,24 +56,9 @@ clean-plug:
 .PHONY: clean-full
 clean-full: clean-graal clean-mx clean-plug
 	rm graal.instrumented.jar
-	cd blood; ./gradlew clean
+	cd blood; ${GRADLE} clean
 
 .PHONY: update-deps
 update-deps: clean
 	git submodule foreach git pull origin master
 
-# source: https://stackoverflow.com/questions/2214575/passing-arguments-to-make-run#14061796
-# If the first argument is "vm"...
-ifeq (vm,$(firstword $(MAKECMDGOALS)))
-  # use the rest as arguments for "vm"
-  VM_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  # ...and turn them into do-nothing targets
-  $(eval $(VM_ARGS):;@:)
-endif
-
-.PHONY: vm
-vm: graal.instrumented.jar
-	@echo -e "\e[01;31m" >&2
-	@echo 'This command is deprecated! Use standalone `./vm` script instead.' >&2
-	@echo -e "\e[0m" >&2
-	./vm ${VM_ARGS}
