@@ -7,6 +7,9 @@ import ch.usi.dag.disl.marker.BodyMarker;
 import cz.cuni.mff.d3s.blood.node_type_tracker.NodeTypeTrackerCollector;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
+/**
+ * Tracks types of nodes used in phases. Can answer questions like "Which node type is appearing the most in this phase?"
+ */
 public class NodeTypeTrackerInject {
     @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void beforePhaseRun(DynamicContext di) {

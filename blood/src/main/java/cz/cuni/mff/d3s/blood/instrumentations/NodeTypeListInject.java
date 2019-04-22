@@ -5,6 +5,9 @@ import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
 import cz.cuni.mff.d3s.blood.node_type_list.NodeTypeList;
 
+/**
+ * Creates a list of node classes.
+ */
 public class NodeTypeListInject {
 
     @After(marker = BodyMarker.class, scope = "void Node.init(*)")

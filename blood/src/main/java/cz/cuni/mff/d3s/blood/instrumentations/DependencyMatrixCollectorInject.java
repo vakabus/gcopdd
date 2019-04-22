@@ -8,7 +8,9 @@ import cz.cuni.mff.d3s.blood.node_origin_tracker.DependencyMatrixCollector;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 /**
- *
+ *  Tracks nodes in IL, saves their creation phase. Collects statistics, where were nodes created, when they enter any
+ *  optimization phase. You can then ask, given a one phase, which other phase produces most of the nodes that the first
+ *  phase operates on.
  */
 public class DependencyMatrixCollectorInject {
 
