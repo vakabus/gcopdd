@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -35,8 +36,8 @@ public final class DependencyMatrixCollector {
      */
     private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
-    private final ConcurrentLinkedDeque<Class<?>> phaseOrder = new ConcurrentLinkedDeque<>();
-    private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+    private final ConcurrentLinkedDeque<PhaseID> phaseOrder = new ConcurrentLinkedDeque<>();
+    private final ConcurrentHashMap<PhaseID, ConcurrentHashMap<PhaseID, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
     // TODO make this configurable, also works with `new DefaultNodeTracker()`
     private final NodeTracker nodeTracker = new CustomNodeTracker();
     /**
@@ -52,8 +53,8 @@ public final class DependencyMatrixCollector {
     };
 
     {
-        phaseOrder.add(NodeTracker.NoPhaseDummy.class);
-        phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
+        phaseOrder.add(NodeTracker.NO_PHASE_DUMMY_PHASE_ID);
+        phaseOrder.add(NodeTracker.DELETED_PHASE_DUMMY_PHASE_ID);
     }
 
     public static DependencyMatrixCollector getInstance() {
@@ -80,7 +81,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph entering the optimization phase
+     * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -90,18 +91,15 @@ public final class DependencyMatrixCollector {
             return;
         }
 
+        var phaseID = getPhaseIDFrom(graph, sourceClass, false);
+
         try {
 
             // obtain row in result matrix for this particular optimization phase
-            var row = dependencyTable.get(sourceClass);
-            if (row == null) {
-                // to save the order of phase discovery
-                phaseOrder.add(sourceClass);
-
-                row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
-                dependencyTable.putIfAbsent(sourceClass, row);
-                row = dependencyTable.get(sourceClass);
-            }
+            var row = dependencyTable.computeIfAbsent(phaseID, p -> {
+                phaseOrder.add(phaseID);
+                return new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+            });
 
             // for each node in the graph entering the phase, note down where it was created
             for (Node node : graph.getNodes()) {
@@ -134,7 +132,6 @@ public final class DependencyMatrixCollector {
             // don't forget to unlock the lock
             readLock.unlock();
         }
-
     }
 
     /**
@@ -142,18 +139,34 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph representing IL after being processed by the
-     * optimization phase
+     * @param graph       Graph representing IL after being processed by the
+     *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        nodeTracker.updateCreationPhase(graph.getNodes(), sourceClass);
+        var phaseID = getPhaseIDFrom(graph, sourceClass, true);
+        nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
+    }
+
+
+    private ConcurrentHashMap<Long, AtomicInteger> graphIdsPhaseCounter = new ConcurrentHashMap<Long, AtomicInteger>();
+
+    private PhaseID getPhaseIDFrom(StructuredGraph graph, Class<?> sourceClass, boolean postIncrement) {
+        int id;
+
+        if (postIncrement) {
+            id = graphIdsPhaseCounter.computeIfAbsent(graph.graphId(), aLong -> new AtomicInteger()).getAndIncrement();
+        } else {
+            id = graphIdsPhaseCounter.computeIfAbsent(graph.graphId(), aLong -> new AtomicInteger()).get();
+        }
+        return new PhaseID(sourceClass, id);
     }
 
     /**
      * Method called on JVM exit dumping collected statistics.
      */
     private void dump() {
+        // FIXME replace Class with PhaseID
         // Block, so that nobody can write to the matrix.
         Lock writeLock = writers.writeLock();
         writeLock.lock();
