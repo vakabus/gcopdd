@@ -1,7 +1,8 @@
 package cz.cuni.mff.d3s.blood.node_type_list;
 
 import cz.cuni.mff.d3s.blood.report.Report;
-import cz.cuni.mff.d3s.blood.report.dump.ManualDump;
+import cz.cuni.mff.d3s.blood.report.dump.ManualBinaryDump;
+import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import org.graalvm.compiler.graph.Node;
 
 import java.nio.charset.Charset;
@@ -18,11 +19,10 @@ public class NodeTypeList {
     private ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
 
     public NodeTypeList() {
-        // register dump
         Report.getInstance().registerDump(
-                new ManualDump(
+                new ManualTextDump(
                         "nodelist",
-                        () -> nodeClasses.stream().map(Class::getName).collect(Collectors.joining("\n")).getBytes(Charset.forName("utf8"))
+                        () -> nodeClasses.stream().map(Class::getName).collect(Collectors.joining("\n"))
                 )
         );
     }

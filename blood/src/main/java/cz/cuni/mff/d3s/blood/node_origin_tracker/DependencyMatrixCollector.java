@@ -1,15 +1,12 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.report.Report;
-import cz.cuni.mff.d3s.blood.report.dump.ManualDump;
+import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.StringWriter;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,9 +54,9 @@ public final class DependencyMatrixCollector {
         phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
     }
 
-    public DependencyMatrixCollector() {
+    private DependencyMatrixCollector() {
         // register hook for dumping data
-        Report.getInstance().registerDump(new ManualDump("depmat", this::dump));
+        Report.getInstance().registerDump(new ManualTextDump("depmat", this::dump));
     }
 
     public static DependencyMatrixCollector getInstance() {
@@ -156,16 +153,15 @@ public final class DependencyMatrixCollector {
     /**
      * Method called on JVM exit dumping collected statistics.
      */
-    private byte[] dump() {
+    private String dump() {
         // Block, so that nobody can write to the matrix.
         Lock writeLock = writers.writeLock();
         writeLock.lock();
-        ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+        StringWriter out = new StringWriter();
         try {
-            Writer out = new OutputStreamWriter(outBytes);
 
             // collect all phase classes
-            final Class[] keysOrder = phaseOrder.toArray(i -> new Class[i]);
+            final Class[] keysOrder = phaseOrder.toArray(Class[]::new);
 
             // List of classes in the order that is used in the matrix below.
             // Each line contains space-separated list of the class's
@@ -195,12 +191,10 @@ public final class DependencyMatrixCollector {
 
 
             Instant finished = Instant.now();
-        } catch (IOException e) {
-            throw new RuntimeException("This never happends, because no IO is involved.", e);
         } finally {
             writeLock.unlock();
         }
 
-        return outBytes.toByteArray();
+        return out.toString();
     }
 }

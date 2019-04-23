@@ -2,11 +2,11 @@ package cz.cuni.mff.d3s.blood.report.dump;
 
 import java.util.function.Supplier;
 
-public final class ManualDump implements DumpRegistration {
+public final class ManualBinaryDump implements DumpRegistration {
     final String name;
     final Supplier<byte[]> dumpProducer;
 
-    public ManualDump(String name, Supplier<byte[]> dataSupplier) {
+    public ManualBinaryDump(String name, Supplier<byte[]> dataSupplier) {
         this.name = name;
         this.dumpProducer = dataSupplier;
     }

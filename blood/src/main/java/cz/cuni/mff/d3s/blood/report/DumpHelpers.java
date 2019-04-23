@@ -1,10 +1,6 @@
 package cz.cuni.mff.d3s.blood.report;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
@@ -92,20 +88,27 @@ public final class DumpHelpers {
     }
 
     /**
-     * Creates the dump file using the name created by
-     * {@link #getDumpBaseFileName(java.lang.String)} in directory
-     * {@link #DUMPS_DIR_NAME}
+     * Creates the dump file output stream with appropriate path.
      *
-     * @param type type of the dumped data, used as suffix
-     * @return an OutputStreamWriter to the file
+     * @param reportId unique identifier of this report
+     * @param name Name of collection tool making the dump.
+     * @return an OutputStream to the file
      * @throws IOException if thrown when creating or opening the file
      */
-    public static final Writer getDumpFileWriter(String type) throws IOException {
-        File dumpsDirectory = new File(DUMPS_DIR_NAME);
-        dumpsDirectory.mkdir();
-        File dumpFile = new File(dumpsDirectory, getDumpBaseFileName(type));
-        System.out.println(dumpFile.getName());
-        dumpFile.createNewFile();
-        return new OutputStreamWriter(new FileOutputStream(dumpFile));
+    public static final OutputStream getDumpFileStream(String reportId, String name) throws IOException {
+        File dumpDir = new File(DUMPS_DIR_NAME);
+        File reportDir = new File(dumpDir, "report-"+reportId);
+        reportDir.mkdirs();
+
+        File dumpFile = new File(reportDir, name);
+
+        // make sure the filename is free
+        int i = 1;
+        while (dumpFile.exists()) {
+            dumpFile = new File(reportDir, name + "." + i);
+            i++;
+        }
+
+        return new FileOutputStream(dumpFile);
     }
 }

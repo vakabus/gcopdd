@@ -10,13 +10,20 @@ import java.util.function.Function;
  * <b>Invariants:</b><br/>
  * It's NOT ok for a success value or an error value to be null.
  *
- *
- * @see <a href="https://doc.rust-lang.org/std/result/">Result type in Rust</a>
- *
  * @param <Success>
  * @param <Error>
+ * @see <a href="https://doc.rust-lang.org/std/result/">Result type in Rust</a>
  */
 public final class Result<Success, Error> {
+
+    final private Success success;
+    final private Error error;
+    final private boolean successful;
+    private Result(Success success, Error error) {
+        this.success = success;
+        this.error = error;
+        successful = success != null;
+    }
 
     public static <T, E> Result<T, E> success(T success) {
         if (success == null) {
@@ -32,16 +39,6 @@ public final class Result<Success, Error> {
         }
 
         return new Result<>(null, error);
-    }
-
-    final private Success success;
-    final private Error error;
-    final private boolean successful;
-
-    private Result(Success success, Error error) {
-        this.success = success;
-        this.error = error;
-        successful = success != null;
     }
 
     public boolean isOk() {
@@ -97,7 +94,7 @@ public final class Result<Success, Error> {
          * @param t the function argument
          * @return the function result (will be wrapped in Result.success)
          * @throws Exception reason of potential failure (will be wrapped in
-         * Result.error)
+         *                   Result.error)
          */
         R checkedApply(T t) throws Exception;
 
@@ -106,7 +103,7 @@ public final class Result<Success, Error> {
          * exception.
          *
          * @param t this will be passed to
-         * {@link #checkedApply(java.lang.Object)}
+         *          {@link #checkedApply(java.lang.Object)}
          * @return a {@link Result} that represents the result of
          * {@link #checkedApply(java.lang.Object)}
          */

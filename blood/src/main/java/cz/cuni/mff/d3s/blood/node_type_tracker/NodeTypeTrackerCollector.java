@@ -1,7 +1,8 @@
 package cz.cuni.mff.d3s.blood.node_type_tracker;
 
 import cz.cuni.mff.d3s.blood.report.Report;
-import cz.cuni.mff.d3s.blood.report.dump.ManualDump;
+import cz.cuni.mff.d3s.blood.report.dump.ManualBinaryDump;
+import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
@@ -18,9 +19,9 @@ public class NodeTypeTrackerCollector {
     private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, NodeTrackerValue>> postPhaseTypes = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
     private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, NodeTrackerValue>> prePhaseTypes = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
 
-    public NodeTypeTrackerCollector() {
+    private NodeTypeTrackerCollector() {
         // FIXME implement dumping
-        Report.getInstance().registerDump(new ManualDump("nodetypematrix", () -> new byte[0]));
+        Report.getInstance().registerDump(new ManualTextDump("nodetypematrix", () -> "FIXME"));
     }
 
     public static NodeTypeTrackerCollector getInstance() {
@@ -30,7 +31,7 @@ public class NodeTypeTrackerCollector {
         return instance;
     }
 
-    public final void updateNodeTypes(StructuredGraph graph, ConcurrentHashMap<Class, NodeTrackerValue> phaseTable) {
+    public final void updateRow(StructuredGraph graph, ConcurrentHashMap<Class, NodeTrackerValue> phaseTable) {
         HashMap<Class, Long> nodeCount = new HashMap<>();
         for (Node n : graph.getNodes()) {
             Long count = nodeCount.getOrDefault(n.getClass(), 0l);
@@ -59,7 +60,7 @@ public class NodeTypeTrackerCollector {
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
         ConcurrentHashMap<Class, NodeTrackerValue> row = prePhaseTypes.computeIfAbsent(sourceClass, aClass -> new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY));
-        updateNodeTypes(graph, row);
+        updateRow(graph, row);
     }
 
     /**
@@ -73,6 +74,6 @@ public class NodeTypeTrackerCollector {
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
         ConcurrentHashMap<Class, NodeTrackerValue> row = postPhaseTypes.computeIfAbsent(sourceClass, aClass -> new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY));
-        updateNodeTypes(graph, row);
+        updateRow(graph, row);
     }
 }
