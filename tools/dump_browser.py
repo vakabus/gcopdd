@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 from collections import namedtuple, OrderedDict
 from os import listdir, path
 from html import escape
@@ -11,7 +9,7 @@ import traceback
 import re
 
 
-PATH_PATTERN = re.compile('/([^./?]+)\.([^./?]+)\.([^./?]+)')
+PATH_PATTERN = re.compile('/([^./?]+)\.([^./?]+)/([^/?]+)')
 
 
 STYLESHEET = b"""
@@ -24,20 +22,20 @@ STYLESHEET = b"""
 
 DumpDict = namedtuple('DumpDict', ['by_test', 'by_type'])
 Dump = namedtuple('Dump', ['test', 'date', 'type'])
-
-
-dump_name = '.'.join
+Dump.name = lambda dump: dump.test + "." + dump.date + "/" + dump.type
 
 
 def listdumps():
 	for name in listdir():
-		if path.isdir(name):
+		if not path.isdir(name) or name == "html":
 			continue
 		try:
-			yield Dump(*name.split('.'))
-		except TypeError:
+			test, date = name.split('.')
+			for type in listdir(name):
+				yield Dump(test, date, type)
+		except ValueError:
 			# split didn't return 3-element array
-			print('Warning: %r is not a valid dump name. Expected "test.date.type"' % name)
+			print('Warning: %r is not a valid report directory name. Expected "test.date"' % name)
 
 
 def newestdump():
@@ -66,9 +64,9 @@ def get_dump_dict():
 
 def html_link(dump, text, existing):
 	if dump in existing:
-		yield '<li><a href="%s">%s</a></li>' % (dump_name(dump), text)
+		yield '<li><a href="/%s">%s</a></li>' % (dump.name(), text)
 	else:
-		yield '<li><a href="%s" style="color: darkred">%s</a></li>' % (dump_name(dump), text)
+		yield '<li><a href="/%s" style="color: darkred">%s</a></li>' % (dump.name(), text)
 
 
 def html_by_test(by_test, current_dump):
@@ -95,7 +93,7 @@ def default_view(file, dump, params):
 
 def html_dump(dump, params):
 	try:
-		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title><link rel="stylesheet" href="s.css"></head><body>' % dump_name(dump)
+		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title><link rel="stylesheet" href="/s.css"></head><body>' % dump.name()
 
 		dumps = get_dump_dict()
 		yield '<div style="position: absolute; top: 0; bottom: 0; right: 0; width: 16em; overflow: auto"><div style="margin: 1em">'
@@ -106,14 +104,14 @@ def html_dump(dump, params):
 
 		yield '<div style="position: absolute; left: 0; top: 0; bottom: 0; right: 16em; overflow: auto"><div style="margin: 1em">'
 		try:
-			with open(dump_name(dump)) as file:
+			with open(dump.name()) as file:
 				try:
 					view = import_module('viewers.' + dump.type).view
 				except ImportError:
 					view = default_view
 				yield from view(file, dump, params)
 		except FileNotFoundError:
-			yield '<div style="border: solid 2px black">Dump %r not found.</div>' % dump_name(dump)
+			yield '<div style="border: solid 2px black">Dump %r not found.</div>' % dump.name()
 		yield '</div></div>'
 
 		yield '</body></html>'
@@ -132,7 +130,7 @@ class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		if file == '/':
 			self.send_response(302)
-			self.send_header('Location', self.absolute(dump_name(newestdump()) + '?index'))
+			self.send_header('Location', self.absolute(newestdump().name() + '?index'))
 			self.end_headers()
 			return
 

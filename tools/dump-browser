@@ -1,16 +1,15 @@
 #!/bin/bash -e
 
-tools_dir="`dirname "$0"`"
-dumps_dir="$tools_dir/../dumps"
+cd "$(git rev-parse --show-toplevel)/dumps"
 
-cd "$dumps_dir"
+dump_browser_py='python3 ../tools/dump_browser.py'
 
 cmd_0() {
-	../tools/dump_browser.py
+	$dump_browser_py
 }
 
 cmd_1start() {
-	nohup ../tools/dump_browser.py > /dev/null 2> /dev/null &
+	nohup $dump_browser_py > /dev/null 2> /dev/null &
 }
 
 cmd_1stop() {
