@@ -4,6 +4,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 //TODO consider merging it with DependencyValue.
 public class NodeTrackerValue {
+
+    public static final NodeTrackerValue ZERO = new NodeTrackerValue();
+
     private final AtomicLong count = new AtomicLong(0);
     private final AtomicLong totalCount = new AtomicLong(0);
     private final AtomicLong iterations = new AtomicLong(0);
