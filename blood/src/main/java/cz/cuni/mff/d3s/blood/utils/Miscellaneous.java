@@ -2,6 +2,7 @@ package cz.cuni.mff.d3s.blood.utils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import org.graalvm.compiler.hotspot.HotSpotCompilationIdentifier;
 
 public final class Miscellaneous {
 
@@ -41,6 +42,20 @@ public final class Miscellaneous {
 
         // restore the previous state of java.lang.reflect.Field, whatever it was
         modifiersField.setAccessible(oldState);
+    }
+
+    /**
+     * Calls HotSpotCompilationIdentifier.getRequest() and returns its result.
+     *
+     * @param hscid instance of org.graalvm.compiler.hotspot.HotSpotCompilationIdentifier
+     * @return instance of jdk.vm.ci.code.CompilationRequest
+     */
+    public static Object hscidGetRequest(HotSpotCompilationIdentifier hscid) {
+        try {
+            return hscid.getClass().getMethod("getRequest").invoke(hscid);
+        } catch (ReflectiveOperationException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     /**
