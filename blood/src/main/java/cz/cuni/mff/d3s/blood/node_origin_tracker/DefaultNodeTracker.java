@@ -41,7 +41,7 @@ public class DefaultNodeTracker implements NodeTracker {
     private void extractStackTraceField() {
         Arrays.stream(Node.class.getDeclaredClasses())
                 .filter(clazz -> clazz.getSimpleName().equals("NodeStackTrace"))
-                .findAny()
+                .findFirst()
                 .ifPresentOrElse(NodeStackTrace -> {
                     try {
                         stackTraceField = NodeStackTrace.getDeclaredField("stackTrace");
