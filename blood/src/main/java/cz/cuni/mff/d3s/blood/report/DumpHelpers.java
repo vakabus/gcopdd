@@ -83,32 +83,27 @@ public final class DumpHelpers {
      * @param type type of the dumped data, used as suffix
      * @return the name without any directories
      */
-    public static final String getDumpBaseFileName(String type) {
-        return getTestName() + "." + getDateString() + "." + type;
+    public static final String getReportDirBaseName(String type) {
+        return getTestName() + "." + getDateString();
     }
 
-    /**
-     * Creates the dump file output stream with appropriate path.
-     *
-     * @param reportId unique identifier of this report
-     * @param name Name of collection tool making the dump.
-     * @return an OutputStream to the file
-     * @throws IOException if thrown when creating or opening the file
-     */
-    public static final OutputStream getDumpFileStream(String reportId, String name) throws IOException {
+    public static final File createReportDir() {
         File dumpDir = new File(DUMPS_DIR_NAME);
-        File reportDir = new File(dumpDir, "report-"+reportId);
+        File reportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
         reportDir.mkdirs();
-
+        return reportDir;
+    }
+    
+    public static final FileOutputStream createDumpFile(File reportDir, String name) throws IOException {
         File dumpFile = new File(reportDir, name);
-
+        
         // make sure the filename is free
         int i = 1;
-        while (dumpFile.exists()) {
+        while(!dumpFile.createNewFile()) {
             dumpFile = new File(reportDir, name + "." + i);
             i++;
         }
-
+        
         return new FileOutputStream(dumpFile);
     }
 }

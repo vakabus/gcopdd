@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class DependencyMatrixCollector {
+
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
@@ -80,7 +81,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph       Graph entering the optimization phase
+     * @param graph Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -142,8 +143,8 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph       Graph representing IL after being processed by the
-     *                    optimization phase
+     * @param graph Graph representing IL after being processed by the
+     * optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -188,7 +189,6 @@ public final class DependencyMatrixCollector {
                             .collect(Collectors.joining(" ", "", "\n"))
                     )
                     .forEachOrdered((CheckedConsumer<String>) out::append);
-
 
             Instant finished = Instant.now();
         } finally {
