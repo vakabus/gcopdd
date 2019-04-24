@@ -18,9 +18,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class DependencyMatrixCollector {
 
@@ -46,12 +44,13 @@ public final class DependencyMatrixCollector {
      * value from matrix. If it encounters a null on the way, returns
      * {@link DependencyValue#ZERO}.
      */
-    private final Function<Class, Function<Class, DependencyValue>> getValue = class1 -> {
-        final var row = dependencyTable.get(class1);
+    private final Function<PhaseID, Function<PhaseID, DependencyValue>> getValue = p1 -> {
+        final var row = dependencyTable.get(p1);
         return (row == null)
-                ? class2 -> DependencyValue.ZERO
-                : class2 -> row.getOrDefault(class2, DependencyValue.ZERO);
+                ? p2 -> DependencyValue.ZERO
+                : p2 -> row.getOrDefault(p2, DependencyValue.ZERO);
     };
+    private ConcurrentHashMap<CompilationIdentifier, ConcurrentHashMap<Class, AtomicInteger>> graphIdsPhaseCounter = new ConcurrentHashMap<>();
 
     {
         phaseOrder.add(NodeTracker.NO_PHASE_DUMMY_PHASE_ID);
@@ -144,26 +143,23 @@ public final class DependencyMatrixCollector {
         incrementCompilationPhaseCounter(graph, sourceClass);
     }
 
-
-    private ConcurrentHashMap<CompilationIdentifier, AtomicInteger> graphIdsPhaseCounter = new ConcurrentHashMap<>();
-
     private PhaseID getPhaseIDFrom(StructuredGraph graph, Class<?> sourceClass) {
         if (graph.compilationId() == CompilationIdentifier.INVALID_COMPILATION_ID)
             return new PhaseID(sourceClass, -1);
 
-        int id = graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new AtomicInteger()).get();
+        int id = graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new ConcurrentHashMap<>()).computeIfAbsent(sourceClass, a -> new AtomicInteger(0)).get();
         return new PhaseID(sourceClass, id);
     }
 
     private void incrementCompilationPhaseCounter(StructuredGraph graph, Class<?> sourceClass) {
-        graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new AtomicInteger(-1)).incrementAndGet();
+        graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new ConcurrentHashMap<>()).computeIfAbsent(sourceClass, a -> new AtomicInteger(-1)).incrementAndGet();
     }
 
     /**
      * Method called on JVM exit dumping collected statistics.
      */
     private void dump() {
-        // FIXME replace Class with PhaseID
+        // FIXME improve the format
         // Block, so that nobody can write to the matrix.
         Lock writeLock = writers.writeLock();
         writeLock.lock();
@@ -172,18 +168,13 @@ public final class DependencyMatrixCollector {
             Instant started = Instant.now();
 
             // collect all phase classes
-            final Class[] keysOrder = phaseOrder.toArray(i -> new Class[i]);
+            final PhaseID[] keysOrder = phaseOrder.toArray(i -> new PhaseID[i]);
 
             try (final Writer out = Dumping.getDumpFileWriter("depmat")) {
                 // List of classes in the order that is used in the matrix below.
                 // Each line contains space-separated list of the class's
                 // superclasses from itself up to java.lang.Object.
-                Arrays.stream(keysOrder)
-                        .map(clazz
-                                -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
-                                .map(Class::getName)
-                                .collect(Collectors.joining(" ", "", "\n"))
-                        )
+                Arrays.stream(keysOrder).map(clazz -> clazz.toString() + "\n")
                         .forEachOrdered((CheckedConsumer<String>) out::append);
 
                 // Empty line.
