@@ -49,7 +49,7 @@ public final class Miscellaneous {
      * @param compilationRequest instance of jdk.vm.ci.code.CompilationRequest
      * @return instance of jdk.vm.ci.meta.ResolvedJavaMethod
      */
-    private static Object crGetMethod(Object compilationRequest) {
+    public static Object crGetMethod(Object compilationRequest) {
         try {
             return compilationRequest.getClass().getMethod("getMethod").invoke(compilationRequest);
         } catch (ReflectiveOperationException ex) {
@@ -64,7 +64,7 @@ public final class Miscellaneous {
      * @return for example
      * "CompilationContextTracker.getSignatureOfMethod(Object)"
      */
-    private static String getSignatureOfMethod(Object method) {
+    public static String getSignatureOfMethod(Object method) {
         String s = method.toString();
         // so far, I have only seen "HotSpotMethod<...>", but let's be general
         int left = s.indexOf('<');
