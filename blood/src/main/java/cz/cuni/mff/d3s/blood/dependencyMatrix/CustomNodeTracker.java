@@ -53,7 +53,7 @@ public class CustomNodeTracker implements NodeTracker {
             var creationPhase = getCreationPhase(node);
             if (creationPhase.isError()) {
                 System.err.println(creationPhase.unwrapError());
-            } else if (creationPhase.unwrap().equals(NoPhaseDummy.class)) {
+            } else if (creationPhase.unwrap() == NO_PHASE_DUMMY_PHASE_ID) {
                 setCreationPhase(node, phaseID);
             }
         }

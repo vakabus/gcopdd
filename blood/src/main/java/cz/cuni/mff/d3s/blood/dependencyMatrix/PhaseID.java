@@ -34,4 +34,12 @@ public class PhaseID {
     public int hashCode() {
         return Objects.hash(phaseClass, sequenceNumber);
     }
+
+    @Override
+    public String toString() {
+        return "PhaseID{" +
+                "phaseClass=" + phaseClass +
+                ", sequenceNumber=" + sequenceNumber +
+                '}';
+    }
 }

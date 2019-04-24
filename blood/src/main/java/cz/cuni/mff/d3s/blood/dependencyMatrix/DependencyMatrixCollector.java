@@ -2,6 +2,7 @@ package cz.cuni.mff.d3s.blood.dependencyMatrix;
 
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
 import cz.cuni.mff.d3s.blood.utils.Dumping;
+import org.graalvm.compiler.core.common.CompilationIdentifier;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
@@ -91,7 +92,7 @@ public final class DependencyMatrixCollector {
             return;
         }
 
-        var phaseID = getPhaseIDFrom(graph, sourceClass, false);
+        var phaseID = getPhaseIDFrom(graph, sourceClass);
 
         try {
 
@@ -112,13 +113,7 @@ public final class DependencyMatrixCollector {
 
                 var creationPhase = creationPhaseResult.unwrap();
 
-                DependencyValue value = row.get(creationPhase);
-                if (value == null) {
-                    value = new DependencyValue();
-                    row.putIfAbsent(creationPhase, value);
-                    value = row.get(creationPhase);
-                }
-
+                DependencyValue value = row.computeIfAbsent(creationPhase, c -> new DependencyValue());
                 value.incrementNumberOfSeenNodes(1);
             }
 
@@ -144,22 +139,24 @@ public final class DependencyMatrixCollector {
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        var phaseID = getPhaseIDFrom(graph, sourceClass, true);
+        var phaseID = getPhaseIDFrom(graph, sourceClass);
         nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
+        incrementCompilationPhaseCounter(graph, sourceClass);
     }
 
 
-    private ConcurrentHashMap<Long, AtomicInteger> graphIdsPhaseCounter = new ConcurrentHashMap<Long, AtomicInteger>();
+    private ConcurrentHashMap<CompilationIdentifier, AtomicInteger> graphIdsPhaseCounter = new ConcurrentHashMap<>();
 
-    private PhaseID getPhaseIDFrom(StructuredGraph graph, Class<?> sourceClass, boolean postIncrement) {
-        int id;
+    private PhaseID getPhaseIDFrom(StructuredGraph graph, Class<?> sourceClass) {
+        if (graph.compilationId() == CompilationIdentifier.INVALID_COMPILATION_ID)
+            return new PhaseID(sourceClass, -1);
 
-        if (postIncrement) {
-            id = graphIdsPhaseCounter.computeIfAbsent(graph.graphId(), aLong -> new AtomicInteger()).getAndIncrement();
-        } else {
-            id = graphIdsPhaseCounter.computeIfAbsent(graph.graphId(), aLong -> new AtomicInteger()).get();
-        }
+        int id = graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new AtomicInteger()).get();
         return new PhaseID(sourceClass, id);
+    }
+
+    private void incrementCompilationPhaseCounter(StructuredGraph graph, Class<?> sourceClass) {
+        graphIdsPhaseCounter.computeIfAbsent(graph.compilationId(), a -> new AtomicInteger(-1)).incrementAndGet();
     }
 
     /**
