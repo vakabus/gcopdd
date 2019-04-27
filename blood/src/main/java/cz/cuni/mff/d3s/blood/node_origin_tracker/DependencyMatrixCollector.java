@@ -62,7 +62,10 @@ public final class DependencyMatrixCollector {
 
     public static DependencyMatrixCollector getInstance() {
         if (instance == null) {
-            instance = new DependencyMatrixCollector();
+            synchronized (DependencyMatrixCollector.class) {
+                if (instance == null)
+                    instance = new DependencyMatrixCollector();
+            }
         }
         return instance;
     }

@@ -29,7 +29,11 @@ public class RecompilationTracker {
     synchronized // XXX: local temporary solution to #9
     public static RecompilationTracker getInstance() {
         if (instance == null) {
-            instance = new RecompilationTracker();
+            synchronized (RecompilationTracker.class) {
+                if (instance == null) {
+                    instance = new RecompilationTracker();
+                }
+            }
         }
         return instance;
     }

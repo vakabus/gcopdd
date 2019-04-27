@@ -28,8 +28,13 @@ public class NodeTypeList {
     }
 
     public static NodeTypeList getInstance() {
-        if (instance == null)
-            instance = new NodeTypeList();
+        if (instance == null) {
+            synchronized (NodeTypeList.class) {
+                if (instance == null) {
+                    instance = new NodeTypeList();
+                }
+            }
+        }
 
         return instance;
     }

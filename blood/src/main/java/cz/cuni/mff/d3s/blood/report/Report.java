@@ -21,7 +21,11 @@ public final class Report {
 
     public static Report getInstance() {
         if (instance == null) {
-            instance = new Report();
+            synchronized (Report.class) {
+                if (instance == null) {
+                    instance = new Report();
+                }
+            }
         }
 
         return instance;

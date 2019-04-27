@@ -3,11 +3,11 @@ package cz.cuni.mff.d3s.blood.node_type_tracker;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
-import java.io.StringWriter;
-import java.util.Arrays;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
+import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +51,10 @@ public class NodeTypeTrackerCollector {
 
     public static NodeTypeTrackerCollector getInstance() {
         if (instance == null) {
-            instance = new NodeTypeTrackerCollector();
+            synchronized (NodeTypeTrackerCollector.class) {
+                if (instance == null)
+                    instance = new NodeTypeTrackerCollector();
+            }
         }
         return instance;
     }
@@ -80,7 +83,7 @@ public class NodeTypeTrackerCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph entering the optimization phase
+     * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -93,8 +96,8 @@ public class NodeTypeTrackerCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph representing IL after being processed by the
-     * optimization phase
+     * @param graph       Graph representing IL after being processed by the
+     *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
