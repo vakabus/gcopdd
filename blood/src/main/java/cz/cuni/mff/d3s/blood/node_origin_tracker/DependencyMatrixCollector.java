@@ -3,21 +3,20 @@ package cz.cuni.mff.d3s.blood.node_origin_tracker;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import cz.cuni.mff.d3s.blood.utils.CheckedConsumer;
+import org.graalvm.compiler.core.common.CompilationIdentifier;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 import java.io.StringWriter;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class DependencyMatrixCollector {
 
@@ -34,8 +33,8 @@ public final class DependencyMatrixCollector {
      */
     private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
-    private final ConcurrentLinkedDeque<Class<?>> phaseOrder = new ConcurrentLinkedDeque<>();
-    private final ConcurrentHashMap<Class, ConcurrentHashMap<Class, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+    private final ConcurrentLinkedDeque<PhaseID> phaseOrder = new ConcurrentLinkedDeque<>();
+    private final ConcurrentHashMap<PhaseID, ConcurrentHashMap<PhaseID, DependencyValue>> dependencyTable = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
     // TODO make this configurable, also works with `new DefaultNodeTracker()`
     private final NodeTracker nodeTracker = new CustomNodeTracker();
     /**
@@ -43,16 +42,16 @@ public final class DependencyMatrixCollector {
      * value from matrix. If it encounters a null on the way, returns
      * {@link DependencyValue#ZERO}.
      */
-    private final Function<Class, Function<Class, DependencyValue>> getValue = class1 -> {
-        final var row = dependencyTable.get(class1);
+    private final Function<PhaseID, Function<PhaseID, DependencyValue>> getValue = p1 -> {
+        final var row = dependencyTable.get(p1);
         return (row == null)
-                ? class2 -> DependencyValue.ZERO
-                : class2 -> row.getOrDefault(class2, DependencyValue.ZERO);
+                ? p2 -> DependencyValue.ZERO
+                : p2 -> row.getOrDefault(p2, DependencyValue.ZERO);
     };
 
     {
-        phaseOrder.add(NodeTracker.NoPhaseDummy.class);
-        phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
+        phaseOrder.add(NodeTracker.NO_PHASE_DUMMY_PHASE_ID);
+        phaseOrder.add(NodeTracker.DELETED_PHASE_DUMMY_PHASE_ID);
     }
 
     private DependencyMatrixCollector() {
@@ -84,7 +83,7 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, before calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph entering the optimization phase
+     * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
     public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
@@ -94,18 +93,15 @@ public final class DependencyMatrixCollector {
             return;
         }
 
+        var phaseID = getCurrentPhaseId(sourceClass);
+
         try {
 
             // obtain row in result matrix for this particular optimization phase
-            var row = dependencyTable.get(sourceClass);
-            if (row == null) {
-                // to save the order of phase discovery
-                phaseOrder.add(sourceClass);
-
-                row = new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
-                dependencyTable.putIfAbsent(sourceClass, row);
-                row = dependencyTable.get(sourceClass);
-            }
+            var row = dependencyTable.computeIfAbsent(phaseID, p -> {
+                phaseOrder.add(phaseID);
+                return new ConcurrentHashMap<>(HASHMAP_INIT_CAPACITY);
+            });
 
             // for each node in the graph entering the phase, note down where it was created
             for (Node node : graph.getNodes()) {
@@ -118,13 +114,7 @@ public final class DependencyMatrixCollector {
 
                 var creationPhase = creationPhaseResult.unwrap();
 
-                DependencyValue value = row.get(creationPhase);
-                if (value == null) {
-                    value = new DependencyValue();
-                    row.putIfAbsent(creationPhase, value);
-                    value = row.get(creationPhase);
-                }
-
+                DependencyValue value = row.computeIfAbsent(creationPhase, c -> new DependencyValue());
                 value.incrementNumberOfSeenNodes(1);
             }
 
@@ -138,7 +128,6 @@ public final class DependencyMatrixCollector {
             // don't forget to unlock the lock
             readLock.unlock();
         }
-
     }
 
     /**
@@ -146,12 +135,17 @@ public final class DependencyMatrixCollector {
      * phase run. More specifically, after calling
      * {@link org.graalvm.compiler.phases.BasePhase#apply(StructuredGraph, Object)}
      *
-     * @param graph Graph representing IL after being processed by the
-     * optimization phase
+     * @param graph       Graph representing IL after being processed by the
+     *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
     public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        nodeTracker.updateCreationPhase(graph.getNodes(), sourceClass);
+        var phaseID = getCurrentPhaseId(sourceClass);
+        nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
+    }
+
+    private PhaseID getCurrentPhaseId(Class<?> sourceClass) {
+        return new PhaseID(sourceClass);
     }
 
     /**
@@ -165,17 +159,12 @@ public final class DependencyMatrixCollector {
         try {
 
             // collect all phase classes
-            final Class[] keysOrder = phaseOrder.toArray(Class[]::new);
+            final PhaseID[] keysOrder = phaseOrder.toArray(i -> new PhaseID[i]);
 
             // List of classes in the order that is used in the matrix below.
             // Each line contains space-separated list of the class's
             // superclasses from itself up to java.lang.Object.
-            Arrays.stream(keysOrder)
-                    .map(clazz
-                            -> Stream.iterate(clazz, Predicate.isEqual(null).negate(), Class::getSuperclass)
-                            .map(Class::getName)
-                            .collect(Collectors.joining(" ", "", "\n"))
-                    )
+            Arrays.stream(keysOrder).map(clazz -> clazz.toString() + "\n")
                     .forEachOrdered((CheckedConsumer<String>) out::append);
 
             // Empty line.
@@ -193,7 +182,6 @@ public final class DependencyMatrixCollector {
                     )
                     .forEachOrdered((CheckedConsumer<String>) out::append);
 
-            Instant finished = Instant.now();
         } finally {
             writeLock.unlock();
         }

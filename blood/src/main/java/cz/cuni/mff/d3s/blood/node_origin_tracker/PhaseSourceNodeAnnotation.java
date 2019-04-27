@@ -2,13 +2,13 @@ package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 public final class PhaseSourceNodeAnnotation {
 
-    final Class<?> source;
+    final PhaseID source;
 
-    public PhaseSourceNodeAnnotation(Class<?> source) {
+    public PhaseSourceNodeAnnotation(PhaseID source) {
         this.source = source;
     }
 
-    public Class<?> getSource() {
+    public PhaseID getSource() {
         return source;
     }
 }

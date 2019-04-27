@@ -5,6 +5,9 @@ else
  GRADLE=gradle
 endif
 
+.PHONY: build
+build: graal.instrumented.jar
+
 blood/build/libs/blood-all.jar: $(shell find blood/src/)
 	cd blood; ${GRADLE} shadowJar
 
@@ -30,9 +33,6 @@ graal/compiler/mxbuild/dists/jdk11/graal.jar: mx/.git graal/.git
 	
 graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar PLuG/dist/PLuG.jar blood/build/libs/blood-all.jar
 	PLuG/plug.sh blood/build/libs/blood-all.jar --in graal/compiler/mxbuild/dists/jdk11/graal.jar --out graal.instrumented.jar
-
-.PHONY: build
-build: graal.instrumented.jar
 
 .PHONY: clean
 clean:
