@@ -43,9 +43,6 @@ public class PhaseID {
 
     @Override
     public String toString() {
-        return "PhaseID{" +
-                "phaseClass=" + phaseClass +
-                ", sequenceNumber=" + sequenceNumber +
-                '}';
+        return phaseClass.getName() + "#" + sequenceNumber;
     }
 }

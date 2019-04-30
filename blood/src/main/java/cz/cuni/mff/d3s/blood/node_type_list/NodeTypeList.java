@@ -1,22 +1,18 @@
 package cz.cuni.mff.d3s.blood.node_type_list;
 
 import cz.cuni.mff.d3s.blood.report.Report;
-import cz.cuni.mff.d3s.blood.report.dump.ManualBinaryDump;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
+import cz.cuni.mff.d3s.blood.utils.ConcurrentOrderedSet;
 import org.graalvm.compiler.graph.Node;
 
-import java.nio.charset.Charset;
-import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class NodeTypeList {
     private static NodeTypeList instance = null;
-    private Set<Class> nodeClasses = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    private ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
+    private final ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
 
     public NodeTypeList() {
         Report.getInstance().registerDump(

@@ -7,7 +7,7 @@ import re
 
 DependencyValue = namedtuple('DependencyValue', ['count', 'totalCount', 'iterations'])
 DependencyValue.ratio = lambda dv: dv.totalCount and dv.count / dv.totalCount
-ClassDesc = namedtuple('ClassDesc', ['index', 'superclasses', 'fullname', 'package', 'simplename'])
+ClassDesc = namedtuple('ClassDesc', ['index', 'fullname', 'package', 'simplename'])
 
 
 def pretty_number(num):
@@ -47,7 +47,7 @@ def html_table(classes, matrix):
 def html_legend(classes):
 	yield '<ol start="0">'
 	for desc in classes:
-		yield '<li title="%s"><span style="color: gray">%s.</span>%s</li>' % ("\n".join(desc.superclasses), desc.package, desc.simplename)
+		yield '<li><span style="color: gray">%s.</span>%s</li>' % (desc.package, desc.simplename)
 	yield '</ol>'
 
 
@@ -55,17 +55,15 @@ def view(lines_n, dump, params):
 	classes = []
 
 	# remove '\n' characters
-	lines = (line[:-1] for line in lines_n)
+	lines = map(str.strip, lines_n)
 	# read first part of the file
-	for lineno, line in enumerate(lines):
-		if not line:
+	for lineno, fullname in enumerate(lines):
+		if not fullname:
 			break
-		superclasses = line.split(' ') # ordered from this class to java.lang.Object
-		fullname = superclasses[0]
 		pkg_delim = fullname.rfind('.')
 		package = fullname[:pkg_delim]
 		simplename = fullname[pkg_delim+1:]
-		classes.append(ClassDesc(lineno, superclasses, fullname, package, simplename))
+		classes.append(ClassDesc(lineno, fullname, package, simplename))
 	# read the matrix from the rest of the file
 	matrix = [[DependencyValue(*map(int, item.split(':'))) for item in line.split(' ')] for line in lines]
 

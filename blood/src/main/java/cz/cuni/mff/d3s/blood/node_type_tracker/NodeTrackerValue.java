@@ -1,9 +1,10 @@
 package cz.cuni.mff.d3s.blood.node_type_tracker;
 
+import cz.cuni.mff.d3s.blood.utils.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;
 
 //TODO consider merging it with DependencyValue.
-public class NodeTrackerValue {
+public class NodeTrackerValue implements MatrixValue<NodeTrackerValue> {
 
     public static final NodeTrackerValue ZERO = new NodeTrackerValue();
 
@@ -26,5 +27,14 @@ public class NodeTrackerValue {
     @Override
     public String toString() {
         return count.get() + ":" + totalCount.get() + ":" + iterations.get();
+    }
+
+    @Override
+    public NodeTrackerValue copy() {
+        NodeTrackerValue newObject = new NodeTrackerValue();
+        newObject.count.set(count.get());
+        newObject.totalCount.set(totalCount.get());
+        newObject.iterations.set(iterations.get());
+        return newObject;
     }
 }

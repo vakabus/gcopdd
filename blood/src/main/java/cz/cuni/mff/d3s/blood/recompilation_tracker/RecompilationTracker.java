@@ -26,7 +26,6 @@ public class RecompilationTracker {
         ));
     }
 
-    synchronized // XXX: local temporary solution to #9
     public static RecompilationTracker getInstance() {
         if (instance == null) {
             synchronized (RecompilationTracker.class) {
