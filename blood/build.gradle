@@ -85,4 +85,6 @@ dependencies {
     // PLuG so that we can use the instrumentation properly
     compileOnly name: 'PLuG'
 
+    compileOnly 'org.ow2.asm:asm:6.0'
+    compileOnly 'org.ow2.asm:asm-util:6.0'
 }

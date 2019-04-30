@@ -9,11 +9,9 @@ public class PhaseOrder {
 
     public static void resetCounter() {
         phaseNumber.set(0);
-        System.out.println("resetting, threadID=" + Thread.currentThread().getId() + ", value="+phaseNumber.get());
     }
 
     public static void incrementCounter() {
         phaseNumber.set(phaseNumber.get() + 1);
-        System.out.println("increment, threadID=" + Thread.currentThread().getId() + ", value="+phaseNumber.get());
     }
 }
