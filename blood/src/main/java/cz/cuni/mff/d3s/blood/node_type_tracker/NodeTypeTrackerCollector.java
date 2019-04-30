@@ -63,6 +63,7 @@ public class NodeTypeTrackerCollector {
 
         final long totalCount = graph.getNodeCount();
         row.valuesStream().forEach(nodeTrackerValue -> nodeTrackerValue.incrementTotalNumberOfNodesSeen(totalCount));
+        row.valuesStream().forEach(NodeTrackerValue::incrementPhaseCounter);
     }
 
     /**
