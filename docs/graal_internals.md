@@ -28,4 +28,16 @@ Actually, there is also a secondary intermediate language LIR, which is used in 
 
 ## Compilation process
 
-The core idea is, that the compiler consists of multiple optimization phases (represented by classes inheriting from `org.graalvm.compiler.phases.BasePhase`). These phases are then grouped together into phase suites, which are actually also normal phases. So you end up with this hierarchy of phases, which call each other in something, that looks like a tree. Each one of them makes some changes to the IL and in the end, one graph representing optimized code falls out. This is then passed into the lower phase of the compiler which emits final instructions. Not a lot of optimizations is performed at that moment, only the lowest level optimizations regarding memory access with proper instructions and similar.
+The core idea is, that the compiler consists of multiple optimization phases. These phases are then grouped together into phase suites, which are actually also normal phases. So you end up with this hierarchy of phases, which call each other in a structure that looks like a tree. Each one of them makes changes to the IL and in the end, one graph representing optimized code falls out. This is then passed into the lower phase of the compiler which emits final instructions. Not a lot of optimizations is performed at that moment, only the lowest level optimizations regarding memory access with proper instructions and similar.
+
+### Phases
+
+All phases are represented as subclasses of abstract class `org.graalvm.compiler.phases.BasePhase<C>` where `C` is type of data context being passed around between phase runs. The actual work with the graph happens in protected abstract method `run(StructuredGraph graph, C context)`. This is where the logic is implemented. However, it's not meant to be called directly. For that, there's a final method in `BasePhase` called `apply(StructuredGraph graph, C context)`. Due to this, any implementation of optimization phase is provided with facilities such as graph dumping and resource usage tracking.
+
+All phases are meant to be stateless, because they can be reused. They are however not singletons. New instances of them are created whenever needed.
+
+### PhaseSuite
+
+Phase grouping happens with class `org.graalvm.compiler.phases.PhaseSuite<C>` extending `BasePhase<C>`. It keeps a list of other phases and when it's method `run` is called, it invokes their apply methods one by one.
+
+Phase suites are used as a compiler configuration primitive. Graal enterprise version differs mainly by the implemented phases and by their composition into phases. There are 3 optimization tiers in the compiler - phase suites `HighTier`, `MidTier` and `LowTier` located in package `org.graalvm.compiler.core.phases`. These are then provided to the core compiler logic by an instance of `CompilarConfiguration` interface, in the community edition it's `org.graalvm.compiler.core.phases.CommunityCompilerConfiguration`.
