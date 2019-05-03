@@ -106,13 +106,12 @@ public final class Report {
         public void run() {
             while (true) {
 
+                // FIXME JVM might exit while still dumping
+
                 try {
                     var registration = dumpQueue.take();
-                    setDaemon(false);   // so that we won't get terminated during dumping
 
                     dumpData(registration, true);
-
-                    setDaemon(dumpQueue.isEmpty());  // so that we will finish processing everything before marking this thread as daemon again
                 } catch (InterruptedException e) {
                     // ignore
                 }

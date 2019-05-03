@@ -24,9 +24,9 @@ public final class DumpHelpers {
     public static final String[] SUFFIXES = {".java", ".class", ".jar"};
 
     /**
-     * Name of the dumpQueue directory. Relative to PWD. Without trailing slash.
+     * Name of the dumps directory. Relative to PWD. Without trailing slash.
      */
-    public static final String DUMPS_DIR_NAME = "dumpQueue";
+    public static final String DUMPS_DIR_NAME = "dumps";
 
     /**
      * Extracts name of currently running application from the UN*X commandline.
@@ -78,7 +78,7 @@ public final class DumpHelpers {
     }
 
     /**
-     * Constructs name of the file that is to be put in the dumpQueue directory.
+     * Constructs name of the file that is to be put in the dumps directory.
      *
      * @param type type of the dumped data, used as suffix
      * @return the name without any directories
@@ -87,9 +87,14 @@ public final class DumpHelpers {
         return getTestName() + "." + getDateString();
     }
 
+    private static File reportDir = null;
+
     public static final File createReportDir() {
+        if (reportDir != null)
+            return reportDir;
+
         File dumpDir = new File(DUMPS_DIR_NAME);
-        File reportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
+        reportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
         reportDir.mkdirs();
         return reportDir;
     }
