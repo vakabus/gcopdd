@@ -18,7 +18,6 @@ public class CompilationEventLocalInvalidator {
      */
     @After(marker = BodyMarker.class, scope = "void HotSpotGraalCompiler.<clinit>()")
     public static void enableCompilationEventLocalFeature() {
-        System.err.println("prd");
         CompilationEventLocal.enableFeature();
     }
 
