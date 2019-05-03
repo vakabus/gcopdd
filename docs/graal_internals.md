@@ -20,9 +20,9 @@ In the standard library of Java, there are performance critical functions that c
 
 ## Intermediate language (IL)
 
-Graal compiler uses an IL in SSA form. It's internally represented as a graph with nodes being operations and edges as dependencies between them. There are 2 types of dependencies - data dependency and control flow dependency. There are similary two types of nodes - floating nodes and fixed nodes. Floating nodes can move around, they don't have a specific place in the code. Fixed nodes must be placed where they belong. To give an example of a floating node, runtime guards are usually made as floating nodes during compilation, so that they can be moved to the beginning of the function.
+Graal compiler uses an IL in SSA form. It's internally represented as a graph with nodes being operations and edges as dependencies between them. There are 2 types of dependencies - data dependency and control flow dependency. There are similarly two types of nodes - floating nodes and fixed nodes. Floating nodes can move around, they don't have a specific place in the code. Fixed nodes must be placed where they belong. To give an example of a floating node, runtime guards are usually made as floating nodes during compilation, so that they can be moved to the beginning of the function.
 
-The IL can be displayed using a tool called "Ideal Graph Visualizer". This tool is released as part of enterprise version of Graal and it's source code is proprietary.
+The IL can be displayed using a tool called "Ideal Graph Visualizer". This tool is released as part of enterprise version of Graal and its source code is proprietary.
 
 Actually, there is also a secondary intermediate language LIR, which is used in the lowest tiers of compilation, when the compiler emits actual instruction for the target architecture. This intermediate language is the same as in C1 compiler. It can be displayed using a tool called "Client Compiler Visualiser".
 
