@@ -24,9 +24,9 @@ public final class DumpHelpers {
     public static final String[] SUFFIXES = {".java", ".class", ".jar"};
 
     /**
-     * Name of the dumps directory. Relative to PWD. Without trailing slash.
+     * Name of the dumpQueue directory. Relative to PWD. Without trailing slash.
      */
-    public static final String DUMPS_DIR_NAME = "dumps";
+    public static final String DUMPS_DIR_NAME = "dumpQueue";
 
     /**
      * Extracts name of currently running application from the UN*X commandline.
@@ -78,7 +78,7 @@ public final class DumpHelpers {
     }
 
     /**
-     * Constructs name of the file that is to be put in the dumps directory.
+     * Constructs name of the file that is to be put in the dumpQueue directory.
      *
      * @param type type of the dumped data, used as suffix
      * @return the name without any directories
