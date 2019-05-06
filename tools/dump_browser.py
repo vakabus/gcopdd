@@ -39,7 +39,7 @@ def listdumps():
 
 
 def newestdump():
-	return max(listdumps(), key=lambda dump: dump.date)
+	return max(listdumps(), default=None, key=lambda dump: dump.date)
 
 
 def get_dump_dict():
@@ -129,9 +129,16 @@ class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 		params = dict(param.split('=', 1) for param in params_str.split('&') if '=' in param)
 
 		if file == '/':
-			self.send_response(302)
-			self.send_header('Location', self.absolute(newestdump().name() + '?index'))
-			self.end_headers()
+			dump = newestdump()
+			if dump:
+				self.send_response(302)
+				self.send_header('Location', self.absolute(dump.name() + '?index'))
+				self.end_headers()
+			else:
+				self.send_response(200)
+				self.send_header('Content-Type', 'text/plain')
+				self.end_headers()
+				self.wfile.write(b'No available dumps')
 			return
 
 		if file == '/STOP':

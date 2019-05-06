@@ -3,6 +3,8 @@ package cz.cuni.mff.d3s.blood.report;
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Utility methods for dumping.
@@ -31,12 +33,13 @@ public final class DumpHelpers {
     /**
      * Extracts name of currently running application from the UN*X commandline.
      *
-     * @return name of the application with its positional arguments joined with
+     * @return name of the application with its positional arguments with
+     * non-alphanumeric characters replaced by underscores and joined with
      * underscore ("_")
      */
     public static String getTestName() {
-        //Pattern argPattern = Pattern.compile("\u0000");
         StringBuilder testName = new StringBuilder();
+        Pattern unsafe = Pattern.compile("[^0-9A-Z_a-z]", Pattern.MULTILINE);
 
         try (Scanner cmdlineScanner = new Scanner(new File("/proc/self/cmdline")).useDelimiter("\u0000")) {
             cmdlineScanner.next(); // ignore java command
@@ -44,7 +47,8 @@ public final class DumpHelpers {
                 String arg = cmdlineScanner.next();
                 if (arg.startsWith("-")) {
                     continue; // ignore option arguments
-                }                    // strip suffix, if any
+                }
+                // strip suffix, if any
                 for (String suffix : SUFFIXES) {
                     if (arg.endsWith(suffix)) {
                         arg = arg.substring(0, arg.length() - suffix.length());
@@ -52,6 +56,7 @@ public final class DumpHelpers {
                     }
                 }
                 arg = arg.substring(arg.lastIndexOf('/') + 1); // use only base name
+                arg = unsafe.matcher(arg).replaceAll("_");
                 testName.append(arg);
                 testName.append('_');
             }
@@ -90,25 +95,26 @@ public final class DumpHelpers {
     private static File reportDir = null;
 
     public static final File createReportDir() {
-        if (reportDir != null)
+        if (reportDir != null) {
             return reportDir;
+        }
 
         File dumpDir = new File(DUMPS_DIR_NAME);
         reportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
         reportDir.mkdirs();
         return reportDir;
     }
-    
+
     public static final FileOutputStream createDumpFile(File reportDir, String name) throws IOException {
         File dumpFile = new File(reportDir, name);
-        
+
         // make sure the filename is free
         int i = 1;
-        while(!dumpFile.createNewFile()) {
+        while (!dumpFile.createNewFile()) {
             dumpFile = new File(reportDir, name + "." + i);
             i++;
         }
-        
+
         return new FileOutputStream(dumpFile);
     }
 }
