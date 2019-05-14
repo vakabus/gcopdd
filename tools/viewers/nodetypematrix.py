@@ -1,24 +1,5 @@
-#!/usr/bin/python3
-
-# TODO refactor (copy-pasted from depmat)
-
-from collections import namedtuple
-from itertools import count, takewhile
-import re
-
-
-DependencyValue = namedtuple('DependencyValue', ['count', 'totalCount', 'iterations'])
-DependencyValue.ratio = lambda dv: dv.totalCount and dv.count / dv.totalCount
-ClassDesc = namedtuple('ClassDesc', ['index', 'fullname', 'package', 'simplename'])
-
-
-def pretty_number(num):
-	if num > 1000000:
-		return str(round(num / 1000000)) + "M"
-	elif num > 1000:
-		return str(round(num / 1000)) + "K"
-	else:
-		return str(num)
+from itertools import takewhile
+from viewers_common import *
 
 
 def html_td(dv, row_desc, col_desc, col_max):
@@ -60,27 +41,12 @@ def html_legend(classes):
 	yield '</ol>'
 
 
-def view(lines_n, dump, params):
-	nodeClasses, phaseClasses = [], []
-
-	# remove '\n' characters
-	lines = map(str.strip, lines_n)
-	# read first part of the file
-	for lineno, fullname in enumerate(takewhile(bool, lines)):
-		pkg_delim = fullname.rfind('.')
-		package = fullname[:pkg_delim]
-		simplename = fullname[pkg_delim+1:]
-		nodeClasses.append(ClassDesc(lineno, fullname, package, simplename))
-	# read first part of the file
-	for lineno, fullname in enumerate(takewhile(bool, lines)):
-		pkg_delim = fullname.rfind('.')
-		package = fullname[:pkg_delim]
-		simplename = fullname[pkg_delim+1:]
-		phaseClasses.append(ClassDesc(lineno, fullname, package, simplename))
-	# read the prePhase matrix
-	pre_phase_matrix = [[DependencyValue(*map(int, item.split(':'))) for item in line.split(' ')] for line in takewhile(bool, lines)]
-	# read the postPhase matrix
-	post_phase_matrix = [[DependencyValue(*map(int, item.split(':'))) for item in line.split(' ')] for line in takewhile(bool, lines)]
+def view(lines_n):
+	lines = map(str.strip, lines_n) # remove '\n' characters
+	nodeClasses = read_classes(takewhile(nonempty, lines))
+	phaseClasses = read_classes(takewhile(nonempty, lines))
+	pre_phase_matrix = read_depval_matrix(takewhile(nonempty, lines))
+	post_phase_matrix = read_depval_matrix(takewhile(nonempty, lines))
 
 	yield '<table style="font-family: monospace"><tr><td>'
 	yield from html_table(nodeClasses, phaseClasses, pre_phase_matrix, find_column_maxima(pre_phase_matrix))
@@ -89,5 +55,3 @@ def view(lines_n, dump, params):
 	yield from html_legend(nodeClasses)
 	yield from html_legend(phaseClasses)
 	yield '</td></tr></table>'
-
-

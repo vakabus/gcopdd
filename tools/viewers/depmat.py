@@ -1,22 +1,5 @@
-#!/usr/bin/python3
-
-from collections import namedtuple
-from itertools import count, takewhile
-import re
-
-
-DependencyValue = namedtuple('DependencyValue', ['count', 'totalCount', 'iterations'])
-DependencyValue.ratio = lambda dv: dv.totalCount and dv.count / dv.totalCount
-ClassDesc = namedtuple('ClassDesc', ['index', 'fullname', 'package', 'simplename'])
-
-
-def pretty_number(num):
-	if num > 1000000:
-		return str(round(num / 1000000)) + "M"
-	elif num > 1000:
-		return str(round(num / 1000)) + "K"
-	else:
-		return str(num)
+from itertools import takewhile
+from viewers_common import *
 
 
 def html_td(dv, row_desc, col_desc):
@@ -51,24 +34,13 @@ def html_legend(classes):
 	yield '</ol>'
 
 
-def view(lines_n, dump, params):
-	classes = []
-
-	# remove '\n' characters
-	lines = map(str.strip, lines_n)
-	# read first part of the file
-	for lineno, fullname in enumerate(takewhile(bool, lines)):
-		pkg_delim = fullname.rfind('.')
-		package = fullname[:pkg_delim]
-		simplename = fullname[pkg_delim+1:]
-		classes.append(ClassDesc(lineno, fullname, package, simplename))
-	# read the matrix
-	matrix = [[DependencyValue(*map(int, item.split(':'))) for item in line.split(' ')] for line in takewhile(bool, lines)]
+def view(lines_n):
+	lines = map(str.strip, lines_n) # remove '\n' characters
+	classes = read_classes(takewhile(nonempty, lines))
+	matrix = read_depval_matrix(takewhile(nonempty, lines))
 
 	yield '<table style="font-family: monospace"><tr><td>'
 	yield from html_table(classes, matrix)
 	yield '</td><td style="text-align: left; vertical-align: top">'
 	yield from html_legend(classes)
 	yield '</td></tr></table>'
-
-
