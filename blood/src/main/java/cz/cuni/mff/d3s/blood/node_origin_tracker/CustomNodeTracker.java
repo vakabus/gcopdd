@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.dependencyMatrix;
+package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.utils.Result;
 import java.io.PrintWriter;
@@ -27,10 +27,10 @@ public class CustomNodeTracker implements NodeTracker {
     }
 
     @Override
-    public Result<Class<?>, String> getCreationPhase(Node node) {
+    public Result<PhaseID, String> getCreationPhase(Node node) {
         try {
             PhaseSourceNodeAnnotation source = (PhaseSourceNodeAnnotation) getNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class);
-            return Result.success(source != null ? source.getSource() : NoPhaseDummy.class);
+            return Result.success(source != null ? source.getSource() : NodeTracker.NO_PHASE_DUMMY_PHASE_ID);
         } catch (IllegalAccessException | InvocationTargetException e) {
             StringWriter stringWriter = new StringWriter();
             e.printStackTrace(new PrintWriter(stringWriter));
@@ -38,23 +38,23 @@ public class CustomNodeTracker implements NodeTracker {
         }
     }
 
-    public void setCreationPhase(Node node, Class<?> phaseClass) {
+    public void setCreationPhase(Node node, PhaseID phaseID) {
         try {
-            setNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class, new PhaseSourceNodeAnnotation(phaseClass));
+            setNodeInfo.invoke(node, PhaseSourceNodeAnnotation.class, new PhaseSourceNodeAnnotation(phaseID));
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
     }
 
     @Override
-    public void updateCreationPhase(Iterable<Node> nodes, Class<?> sourceClass) {
+    public void updateCreationPhase(Iterable<Node> nodes, PhaseID phaseID) {
         // mark all nodes without any creation annotation as created in this phase
         for (Node node : nodes) {
             var creationPhase = getCreationPhase(node);
             if (creationPhase.isError()) {
                 System.err.println(creationPhase.unwrapError());
-            } else if (creationPhase.unwrap().equals(NoPhaseDummy.class)) {
-                setCreationPhase(node, sourceClass);
+            } else if (creationPhase.unwrap() == NO_PHASE_DUMMY_PHASE_ID) {
+                setCreationPhase(node, phaseID);
             }
         }
     }

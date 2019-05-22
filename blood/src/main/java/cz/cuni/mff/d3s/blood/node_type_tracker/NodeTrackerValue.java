@@ -1,24 +1,21 @@
-package cz.cuni.mff.d3s.blood.dependencyMatrix;
+package cz.cuni.mff.d3s.blood.node_type_tracker;
 
+import cz.cuni.mff.d3s.blood.utils.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;
 
-public final class DependencyValue {
+//TODO consider merging it with DependencyValue.
+public class NodeTrackerValue implements MatrixValue<NodeTrackerValue> {
 
-    public static final DependencyValue ZERO = new DependencyValue();
+    public static final NodeTrackerValue ZERO = new NodeTrackerValue();
 
     private final AtomicLong count = new AtomicLong(0);
     private final AtomicLong totalCount = new AtomicLong(0);
     private final AtomicLong iterations = new AtomicLong(0);
 
-    public double getPercent() {
-        return ((double) count.get()) / ((double) totalCount.get());
-    }
-
     public void incrementNumberOfSeenNodes(long nodesSeen) {
         count.addAndGet(nodesSeen);
     }
 
-    // FIXME redundant information, can be moved ouside (potential performance issue)
     public void incrementTotalNumberOfNodesSeen(long nodesTotal) {
         totalCount.addAndGet(nodesTotal);
     }
@@ -30,5 +27,14 @@ public final class DependencyValue {
     @Override
     public String toString() {
         return count.get() + ":" + totalCount.get() + ":" + iterations.get();
+    }
+
+    @Override
+    public NodeTrackerValue copy() {
+        NodeTrackerValue newObject = new NodeTrackerValue();
+        newObject.count.set(count.get());
+        newObject.totalCount.set(totalCount.get());
+        newObject.iterations.set(iterations.get());
+        return newObject;
     }
 }

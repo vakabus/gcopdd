@@ -1,24 +1,22 @@
-package cz.cuni.mff.d3s.blood.utils;
+package cz.cuni.mff.d3s.blood.report;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Utility methods for dumping.
  */
-public final class Dumping {
+public final class DumpHelpers {
 
     /**
      * Disabling creation of instances of this class.
      *
      * @throws UnsupportedOperationException always
      */
-    private Dumping() throws UnsupportedOperationException {
+    private DumpHelpers() throws UnsupportedOperationException {
         throw new UnsupportedOperationException("Cannot instantiate this class");
     }
 
@@ -35,12 +33,13 @@ public final class Dumping {
     /**
      * Extracts name of currently running application from the UN*X commandline.
      *
-     * @return name of the application with its positional arguments joined with
+     * @return name of the application with its positional arguments with
+     * non-alphanumeric characters replaced by underscores and joined with
      * underscore ("_")
      */
     public static String getTestName() {
-        //Pattern argPattern = Pattern.compile("\u0000");
         StringBuilder testName = new StringBuilder();
+        Pattern unsafe = Pattern.compile("[^0-9A-Z_a-z]", Pattern.MULTILINE);
 
         try (Scanner cmdlineScanner = new Scanner(new File("/proc/self/cmdline")).useDelimiter("\u0000")) {
             cmdlineScanner.next(); // ignore java command
@@ -48,7 +47,8 @@ public final class Dumping {
                 String arg = cmdlineScanner.next();
                 if (arg.startsWith("-")) {
                     continue; // ignore option arguments
-                }                    // strip suffix, if any
+                }
+                // strip suffix, if any
                 for (String suffix : SUFFIXES) {
                     if (arg.endsWith(suffix)) {
                         arg = arg.substring(0, arg.length() - suffix.length());
@@ -56,6 +56,7 @@ public final class Dumping {
                     }
                 }
                 arg = arg.substring(arg.lastIndexOf('/') + 1); // use only base name
+                arg = unsafe.matcher(arg).replaceAll("_");
                 testName.append(arg);
                 testName.append('_');
             }
@@ -87,25 +88,33 @@ public final class Dumping {
      * @param type type of the dumped data, used as suffix
      * @return the name without any directories
      */
-    public static final String getDumpBaseFileName(String type) {
-        return getTestName() + "." + getDateString() + "." + type;
+    public static final String getReportDirBaseName(String type) {
+        return getTestName() + "." + getDateString();
     }
 
-    /**
-     * Creates the dump file using the name created by
-     * {@link #getDumpBaseFileName(java.lang.String)} in directory
-     * {@link #DUMPS_DIR_NAME}
-     *
-     * @param type type of the dumped data, used as suffix
-     * @return an OutputStreamWriter to the file
-     * @throws IOException if thrown when creating or opening the file
-     */
-    public static final Writer getDumpFileWriter(String type) throws IOException {
-        File dumpsDirectory = new File(DUMPS_DIR_NAME);
-        dumpsDirectory.mkdir();
-        File dumpFile = new File(dumpsDirectory, getDumpBaseFileName(type));
-        System.out.println(dumpFile.getName());
-        dumpFile.createNewFile();
-        return new OutputStreamWriter(new FileOutputStream(dumpFile));
+    private static File reportDir = null;
+
+    public static final File createReportDir() {
+        if (reportDir != null) {
+            return reportDir;
+        }
+
+        File dumpDir = new File(DUMPS_DIR_NAME);
+        reportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
+        reportDir.mkdirs();
+        return reportDir;
+    }
+
+    public static final FileOutputStream createDumpFile(File reportDir, String name) throws IOException {
+        File dumpFile = new File(reportDir, name);
+
+        // make sure the filename is free
+        int i = 1;
+        while (!dumpFile.createNewFile()) {
+            dumpFile = new File(reportDir, name + "." + i);
+            i++;
+        }
+
+        return new FileOutputStream(dumpFile);
     }
 }

@@ -4,27 +4,19 @@ import ch.usi.dag.disl.annotation.After;
 import ch.usi.dag.disl.annotation.Before;
 import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
-import cz.cuni.mff.d3s.blood.node_origin_tracker.DependencyMatrixCollector;
+import cz.cuni.mff.d3s.blood.node_type_tracker.NodeTypeTrackerCollector;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 /**
- *  Tracks nodes in IL, saves their creation phase. Collects statistics, where were nodes created, when they enter any
- *  optimization phase. You can then ask, given a one phase, which other phase produces most of the nodes that the first
- *  phase operates on.
+ * Tracks types of nodes used in phases. Can answer questions like "Which node type is appearing the most in this phase?"
  */
-public class DependencyMatrixCollectorInject {
-
-    @After(marker = BodyMarker.class, scope = "void Node.<clinit>()")
-    public static void afterNodeClinit() {
-        DependencyMatrixCollector.getInstance().onNodeClassInit();
-    }
-
+public class NodeTypeTrackerInject {
     @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void beforePhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.getInstance().prePhase(graph, thiz.getClass());
+        NodeTypeTrackerCollector.getInstance().prePhase(graph, thiz.getClass());
     }
 
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
@@ -32,6 +24,6 @@ public class DependencyMatrixCollectorInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.getInstance().postPhase(graph, thiz.getClass());
+        NodeTypeTrackerCollector.getInstance().postPhase(graph, thiz.getClass());
     }
 }

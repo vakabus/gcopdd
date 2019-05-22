@@ -1,31 +1,63 @@
 #!/bin/bash -e
 
-tools_dir="`dirname "$0"`"
-dumps_dir="$tools_dir/../dumps"
+cd "$(git rev-parse --show-toplevel)/dumps"
 
-cd "$dumps_dir"
+dump_browser_py='python3 ../tools/dump_browser.py'
 
-cmd_0() {
-	../tools/dump_browser.py
+case $# in
+	(1)
+		action="cmd_$1"
+		port="8000"
+		;;
+	(2)
+		action="cmd_$1"
+		port="$2"
+		;;
+	(*)
+		action="usage"
+		port="0"
+		;;
+esac
+
+case "$port" in
+	(*[!0-9]*|"")
+		echo "Invalid port number" >&2
+		exit 1
+		;;
+esac
+
+usage() {
+	echo "Usage:" >&2
+	echo "    $0 fg [PORT]" >&2
+	echo "      Start server in foreground (terminate by ^C)" >&2
+	echo "    $0 start [PORT]" >&2
+	echo "      Start server in background (terminate by stop command)" >&2
+	echo "    $0 stop [PORT]" >&2
+	echo "      Stop running server (PORT must be given unless it is 8000)" >&2
+	echo "    $0 save" >&2
+	echo "      Don't start a server, save HTML files to the dumps directory" >&2
+	echo "  Default for PORT is 8000." >&2
+	exit 1
 }
 
-cmd_1start() {
-	nohup ../tools/dump_browser.py > /dev/null 2> /dev/null &
+cmd_fg() {
+	echo "Starting server at http://localhost:$port/." >&2
+	$dump_browser_py "$port"
 }
 
-cmd_1stop() {
-	wget -o /dev/null -O /dev/null 'http://localhost:8000/STOP'
+cmd_start() {
+	echo "Starting server at http://localhost:$port/." >&2
+	nohup $dump_browser_py "$port" > /dev/null 2> /dev/null &
 }
 
-cmd_1save() {
-	cmd_1start
-	[ -e html ] && rm -rf html
-	mkdir html
-	# wait until server starts
-	while ! wget -o /dev/null -O /dev/null 'http://localhost:8000/'; do :; done
-	# recursive download to dumps/html/
-	wget -o /dev/null -r --convert-links -P html -E -nH 'http://localhost:8000/'
-	cmd_1stop
+cmd_stop() {
+	echo "Stopping server on port $port." >&2
+	wget -o /dev/null -O /dev/null "http://localhost:$port/STOP"
 }
 
-"cmd_$#$1"
+cmd_save() {
+	echo "Saving..." >&2
+	$dump_browser_py
+}
+
+"$action"

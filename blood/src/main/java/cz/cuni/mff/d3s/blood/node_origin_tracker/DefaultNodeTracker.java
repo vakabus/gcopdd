@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.dependencyMatrix;
+package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
 import cz.cuni.mff.d3s.blood.utils.Result;
@@ -41,7 +41,7 @@ public class DefaultNodeTracker implements NodeTracker {
     private void extractStackTraceField() {
         Arrays.stream(Node.class.getDeclaredClasses())
                 .filter(clazz -> clazz.getSimpleName().equals("NodeStackTrace"))
-                .findAny()
+                .findFirst()
                 .ifPresentOrElse(NodeStackTrace -> {
                     try {
                         stackTraceField = NodeStackTrace.getDeclaredField("stackTrace");
@@ -81,13 +81,13 @@ public class DefaultNodeTracker implements NodeTracker {
     }
 
     @Override
-    public Result<Class<?>, String> getCreationPhase(Node node) {
+    public Result<PhaseID, String> getCreationPhase(Node node) {
         ClassLoader classLoader = node.getClass().getClassLoader();
 
         Result<StackTraceElement[], String> traceResult = getCreationStackTrace(node);
 
         if (traceResult == null) {
-            return Result.success(DeletedPhaseDummy.class);
+            return Result.success(NodeTracker.DELETED_PHASE_DUMMY_PHASE_ID);
         }
 
         if (traceResult.isError()) {
@@ -101,11 +101,12 @@ public class DefaultNodeTracker implements NodeTracker {
                 .map(Result::unwrap)
                 .filter(BasePhase.class::isAssignableFrom)
                 .findFirst()
-                .orElse(NoPhaseDummy.class));
+                .map(aClass -> new PhaseID(aClass, 0))
+                .orElse(NodeTracker.NO_PHASE_DUMMY_PHASE_ID));
     }
 
     @Override
-    public void updateCreationPhase(Iterable<Node> nodes, Class<?> phaseClass) {
+    public void updateCreationPhase(Iterable<Node> nodes, PhaseID phaseID) {
         // We don't need to mark nodes, as Graal does it for us.
     }
 }
