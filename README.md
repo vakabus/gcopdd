@@ -40,8 +40,7 @@ This command can be run in cleanly cloned repository. Everything necessary will 
 ## Browsing dumps
 
 It is possible to view dumps in their graphical representation using a web browser.
-Execute `tools/dump-browser` from the project root directory and then open `http://localhost:8000/` in your web browser.
-You can also use `tools/dump-browser start` to start the server as daemon (and stop it using `tools/dump-browser stop`).
+Execute `tools/dump-browser` to get more information.
 
 ## Example
 
