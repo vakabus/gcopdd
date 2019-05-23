@@ -14,30 +14,16 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public final class DependencyMatrixCollector {
-    // the default of 16 doesn't fit even the most trivial programs
-    private static final int HASHMAP_INIT_CAPACITY = 64;
-    private static DependencyMatrixCollector instance = null;
     // TODO make this configurable, also works with `new DefaultNodeTracker()`
-    private final NodeTracker nodeTracker = new CustomNodeTracker();
+    private static NodeTracker nodeTracker = new CustomNodeTracker();
 
-    private CompilationEventLocal<DependencyMatrix> matrix = new CompilationEventLocal<>(() -> new DependencyMatrix(), dependencyMatrix -> Report.getInstance().dumpNow(new ManualTextDump("depmat", dependencyMatrix::dump)));
-
-    public static DependencyMatrixCollector getInstance() {
-        if (instance == null) {
-            synchronized (DependencyMatrixCollector.class) {
-                if (instance == null) {
-                    instance = new DependencyMatrixCollector();
-                }
-            }
-        }
-        return instance;
-    }
+    private static CompilationEventLocal<DependencyMatrix> matrix = new CompilationEventLocal<>(DependencyMatrix::new, dependencyMatrix -> Report.getInstance().dumpNow(new ManualTextDump("depmat", dependencyMatrix::dump)));
 
     /**
      * This function is called by the instrumentation after the Node class is
      * initialized.
      */
-    public final void onNodeClassInit() {
+    public static void onNodeClassInit() {
         // initialize everything needed by the node tracker implementation
         nodeTracker.onNodeClassInit();
     }
@@ -50,7 +36,7 @@ public final class DependencyMatrixCollector {
      * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
-    public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
+    public static void prePhase(StructuredGraph graph, Class<?> sourceClass) {
         matrix.get().update(graph, sourceClass);
     }
 
@@ -63,16 +49,14 @@ public final class DependencyMatrixCollector {
      *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
-    public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        var phaseID = getCurrentPhaseId(sourceClass);
-        nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
+    public static void postPhase(StructuredGraph graph, Class<?> sourceClass) {
+        nodeTracker.updateCreationPhase(graph.getNodes(), sourceClass);
     }
 
-    private PhaseID getCurrentPhaseId(Class<?> sourceClass) {
-        return new PhaseID(sourceClass);
-    }
+    static final class DependencyMatrix {
+        // the default of 16 doesn't fit even the most trivial programs
+        private static final int HASHMAP_INIT_CAPACITY = 64;
 
-    final class DependencyMatrix {
         /**
          * Multiple threads are writing to the result matrix at once. That's fine.
          * However, in the end, we want to dump the data and nobody should be
@@ -131,7 +115,7 @@ public final class DependencyMatrixCollector {
                         continue;
                     }
 
-                    var creationPhaseClass = creationPhaseResult.unwrap().phaseClass;
+                    var creationPhaseClass = creationPhaseResult.unwrap();
 
                     DependencyValue value = row.getOrCreate(creationPhaseClass);
                     value.incrementNumberOfSeenNodes(1);

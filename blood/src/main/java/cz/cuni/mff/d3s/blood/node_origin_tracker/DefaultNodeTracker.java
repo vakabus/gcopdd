@@ -81,13 +81,13 @@ public class DefaultNodeTracker implements NodeTracker {
     }
 
     @Override
-    public Result<PhaseID, String> getCreationPhase(Node node) {
+    public Result<Class<?>, String> getCreationPhase(Node node) {
         ClassLoader classLoader = node.getClass().getClassLoader();
 
         Result<StackTraceElement[], String> traceResult = getCreationStackTrace(node);
 
         if (traceResult == null) {
-            return Result.success(NodeTracker.DELETED_PHASE_DUMMY_PHASE_ID);
+            return Result.success(NodeTracker.DeletedPhaseDummy.class);
         }
 
         if (traceResult.isError()) {
@@ -101,12 +101,11 @@ public class DefaultNodeTracker implements NodeTracker {
                 .map(Result::unwrap)
                 .filter(BasePhase.class::isAssignableFrom)
                 .findFirst()
-                .map(aClass -> new PhaseID(aClass, 0))
-                .orElse(NodeTracker.NO_PHASE_DUMMY_PHASE_ID));
+                .orElse(NodeTracker.NoPhaseDummy.class));
     }
 
     @Override
-    public void updateCreationPhase(Iterable<Node> nodes, PhaseID phaseID) {
+    public void updateCreationPhase(Iterable<Node> nodes, Class<?> phaseID) {
         // We don't need to mark nodes, as Graal does it for us.
     }
 }

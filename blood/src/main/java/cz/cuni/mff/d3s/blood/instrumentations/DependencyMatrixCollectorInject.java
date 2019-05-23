@@ -16,7 +16,7 @@ public class DependencyMatrixCollectorInject {
 
     @After(marker = BodyMarker.class, scope = "void Node.<clinit>()")
     public static void afterNodeClinit() {
-        DependencyMatrixCollector.getInstance().onNodeClassInit();
+        DependencyMatrixCollector.onNodeClassInit();
     }
 
     @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
@@ -24,7 +24,7 @@ public class DependencyMatrixCollectorInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.getInstance().prePhase(graph, thiz.getClass());
+        DependencyMatrixCollector.prePhase(graph, thiz.getClass());
     }
 
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
@@ -32,6 +32,6 @@ public class DependencyMatrixCollectorInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.getInstance().postPhase(graph, thiz.getClass());
+        DependencyMatrixCollector.postPhase(graph, thiz.getClass());
     }
 }

@@ -16,23 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class NodeTypeTrackerCollector {
-    private static NodeTypeTrackerCollector instance = null;
-
-    private CompilationEventLocal<NodeTypeMatrix> matrix = new CompilationEventLocal<>(() -> new NodeTypeMatrix(), nodeTypeMatrix -> Report.getInstance().dumpNow(new ManualTextDump("nodetypematrix", nodeTypeMatrix::dump)));
-
-    private NodeTypeTrackerCollector() {
-    }
-
-    public static NodeTypeTrackerCollector getInstance() {
-        if (instance == null) {
-            synchronized (NodeTypeTrackerCollector.class) {
-                if (instance == null) {
-                    instance = new NodeTypeTrackerCollector();
-                }
-            }
-        }
-        return instance;
-    }
+    private static CompilationEventLocal<NodeTypeMatrix> matrix = new CompilationEventLocal<>(NodeTypeMatrix::new, nodeTypeMatrix -> Report.getInstance().dumpNow(new ManualTextDump("nodetypematrix", nodeTypeMatrix::dump)));
 
 
     /**
@@ -43,7 +27,7 @@ public class NodeTypeTrackerCollector {
      * @param graph       Graph entering the optimization phase
      * @param sourceClass Class of the optimization phase running
      */
-    public final void prePhase(StructuredGraph graph, Class<?> sourceClass) {
+    public static void prePhase(StructuredGraph graph, Class<?> sourceClass) {
         matrix.get().updatePre(graph, sourceClass);
     }
 
@@ -56,7 +40,7 @@ public class NodeTypeTrackerCollector {
      *                    optimization phase
      * @param sourceClass Class of the running optimization phase
      */
-    public final void postPhase(StructuredGraph graph, Class<?> sourceClass) {
+    public static void postPhase(StructuredGraph graph, Class<?> sourceClass) {
         matrix.get().updatePost(graph, sourceClass);
     }
 

@@ -16,7 +16,7 @@ public class NodeTypeTrackerInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        NodeTypeTrackerCollector.getInstance().prePhase(graph, thiz.getClass());
+        NodeTypeTrackerCollector.prePhase(graph, thiz.getClass());
     }
 
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
@@ -24,6 +24,6 @@ public class NodeTypeTrackerInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        NodeTypeTrackerCollector.getInstance().postPhase(graph, thiz.getClass());
+        NodeTypeTrackerCollector.postPhase(graph, thiz.getClass());
     }
 }
