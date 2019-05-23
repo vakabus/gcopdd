@@ -10,6 +10,9 @@ import org.graalvm.compiler.nodes.StructuredGraph;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class NodeTypeTrackerCollector {
@@ -62,27 +65,40 @@ public class NodeTypeTrackerCollector {
         // the default of 16 doesn't fit even the most trivial programs
         private static final int HASHMAP_INIT_CAPACITY = 64;
 
+        private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
+
         private ConcurrentMatrix<Class, Class, NodeTrackerValue> preMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
         private ConcurrentMatrix<Class, Class, NodeTrackerValue> postMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
 
         private ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
         private ConcurrentOrderedSet<Class> phaseClasses = new ConcurrentOrderedSet<>();
 
-        public final void updatePre(StructuredGraph graph, Class<?> phaseClass) {
-            phaseClasses.add(phaseClass);
-
-            var row = preMatrix.getOrCreateRow(phaseClass);
-            this.updateRow(graph, row);
+        final void updatePre(StructuredGraph graph, Class<?> phaseClass) {
+            update(graph, phaseClass, preMatrix);
         }
 
-        public final void updatePost(StructuredGraph graph, Class<?> phaseClass) {
-            phaseClasses.add(phaseClass);
-
-            var row = postMatrix.getOrCreateRow(phaseClass);
-            this.updateRow(graph, row);
+        final void updatePost(StructuredGraph graph, Class<?> phaseClass) {
+            update(graph, phaseClass, postMatrix);
         }
 
-        public final void updateRow(StructuredGraph graph, ConcurrentMatrix<Class, Class, NodeTrackerValue>.Row row) {
+        private void update(StructuredGraph graph, Class phaseClass, ConcurrentMatrix<Class, Class, NodeTrackerValue> matrix) {
+            Lock readLock = writers.readLock();
+            if (!readLock.tryLock()) {
+                // Dump is already in progress, don't change the matrix any more.
+                return;
+            }
+
+            try {
+                phaseClasses.add(phaseClass);
+
+                var row = matrix.getOrCreateRow(phaseClass);
+                this.updateRow(graph, row);
+            } finally {
+                readLock.unlock();
+            }
+        }
+
+        private void updateRow(StructuredGraph graph, ConcurrentMatrix<Class, Class, NodeTrackerValue>.Row row) {
             HashMap<Class, Long> nodeCount = new HashMap<>();
             for (Node n : graph.getNodes()) {
                 Long count = nodeCount.getOrDefault(n.getClass(), 0l);
@@ -105,18 +121,25 @@ public class NodeTypeTrackerCollector {
         }
 
         public final String dump() {
-            String nodeClassesStr = nodeClasses.stream()
-                    .map(Class::getName)
-                    .collect(Collectors.joining("\n"));
+            // Block, so that nobody can write to the matrix.
+            Lock writeLock = writers.writeLock();
+            writeLock.lock();
+            try {
+                String nodeClassesStr = nodeClasses.stream()
+                        .map(Class::getName)
+                        .collect(Collectors.joining("\n"));
 
-            String phaseClassesStr = phaseClasses.stream()
-                    .map(Class::getName)
-                    .collect(Collectors.joining("\n"));
+                String phaseClassesStr = phaseClasses.stream()
+                        .map(Class::getName)
+                        .collect(Collectors.joining("\n"));
 
-            String prePhaseStr = preMatrix.toString(phaseClasses::stream, nodeClasses::stream);
-            String postPhaseStr = postMatrix.toString(phaseClasses::stream, nodeClasses::stream);
+                String prePhaseStr = preMatrix.toString(phaseClasses::stream, nodeClasses::stream);
+                String postPhaseStr = postMatrix.toString(phaseClasses::stream, nodeClasses::stream);
 
-            return nodeClassesStr + "\n\n" + phaseClassesStr + "\n\n" + prePhaseStr + "\n\n" + postPhaseStr;
+                return nodeClassesStr + "\n\n" + phaseClassesStr + "\n\n" + prePhaseStr + "\n\n" + postPhaseStr;
+            } finally {
+                writeLock.unlock();
+            }
         }
     }
 }
