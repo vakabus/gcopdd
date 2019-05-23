@@ -16,7 +16,7 @@ public class CompilationEventLocalInvalidator {
      * for the first time. We can't instrument ourselves, so that's why we instrument something, that get's loaded as
      * early as possible.
      */
-    @After(marker = BodyMarker.class, scope = "void HotSpotGraalCompiler.<clinit>()")
+    @Before(marker = BodyMarker.class, scope = "void HotSpotGraalCompilerFactory.<clinit>()")
     public static void enableCompilationEventLocalFeature() {
         CompilationEventLocal.enableFeature();
     }
