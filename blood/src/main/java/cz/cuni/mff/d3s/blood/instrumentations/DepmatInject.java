@@ -4,7 +4,8 @@ import ch.usi.dag.disl.annotation.After;
 import ch.usi.dag.disl.annotation.Before;
 import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
-import cz.cuni.mff.d3s.blood.node_origin_tracker.DependencyMatrixCollector;
+import cz.cuni.mff.d3s.blood.report.Manager;
+import cz.cuni.mff.d3s.blood.depmat.DepmatCollector;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 /**
@@ -12,19 +13,14 @@ import org.graalvm.compiler.nodes.StructuredGraph;
  *  optimization phase. You can then ask, given a one phase, which other phase produces most of the nodes that the first
  *  phase operates on.
  */
-public class DependencyMatrixCollectorInject {
-
-    @After(marker = BodyMarker.class, scope = "void Node.<clinit>()")
-    public static void afterNodeClinit() {
-        DependencyMatrixCollector.onNodeClassInit();
-    }
+public class DepmatInject {
 
     @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void beforePhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.prePhase(graph, thiz.getClass());
+        Manager.get(DepmatCollector.class).prePhase(graph, thiz.getClass());
     }
 
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
@@ -32,6 +28,6 @@ public class DependencyMatrixCollectorInject {
         Object thiz = di.getThis();
         StructuredGraph graph = di.getMethodArgumentValue(0, StructuredGraph.class);
 
-        DependencyMatrixCollector.postPhase(graph, thiz.getClass());
+        Manager.get(DepmatCollector.class).postPhase(graph, thiz.getClass());
     }
 }

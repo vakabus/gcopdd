@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.node_type_tracker;
+package cz.cuni.mff.d3s.blood.nodemat;
 
 import cz.cuni.mff.d3s.blood.utils.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;

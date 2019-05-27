@@ -104,14 +104,12 @@ public final class DumpHelpers {
         return reportDir;
     }
 
-    public static final FileOutputStream createDumpFile(File reportDir, String name) throws IOException {
-        File dumpFile = new File(reportDir, name);
+    public static final FileOutputStream createDumpFile(File reportDir, String name, int i) throws IOException {
+        File dumpFile = new File(reportDir, name + "." + i);
 
         // make sure the filename is free
-        int i = 1;
-        while (!dumpFile.createNewFile()) {
-            dumpFile = new File(reportDir, name + "." + i);
-            i++;
+        if (!dumpFile.createNewFile()) {
+            throw new RuntimeException("File name is not free: " + dumpFile.getPath());
         }
 
         return new FileOutputStream(dumpFile);
