@@ -1,5 +1,6 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
+import cz.cuni.mff.d3s.blood.phaseid.PhaseID;
 import cz.cuni.mff.d3s.blood.utils.Result;
 import java.io.PrintWriter;
 import java.io.StringWriter;

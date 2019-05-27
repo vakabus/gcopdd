@@ -1,19 +1,19 @@
-package cz.cuni.mff.d3s.blood.node_origin_tracker;
+package cz.cuni.mff.d3s.blood.phaseid;
 
 import cz.cuni.mff.d3s.blood.phase_order_tracker.PhaseOrder;
 
 import java.util.Objects;
 
-public class PhaseID {
+public class PhaseOrderPhaseID implements PhaseID {
     final Class<?> phaseClass;
     final int sequenceNumber;
 
-    public PhaseID(Class<?> phaseClass) {
+    public PhaseOrderPhaseID(Class<?> phaseClass) {
         this.phaseClass = phaseClass;
         this.sequenceNumber = PhaseOrder.getCurrentPhaseNumber();
     }
 
-    public PhaseID(Class<?> phaseClass, int sequenceNumber) {
+    public PhaseOrderPhaseID(Class<?> phaseClass, int sequenceNumber) {
         this.phaseClass = phaseClass;
         this.sequenceNumber = sequenceNumber;
     }
@@ -30,7 +30,7 @@ public class PhaseID {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        PhaseID phaseID = (PhaseID) o;
+        PhaseOrderPhaseID phaseID = (PhaseOrderPhaseID) o;
         return sequenceNumber == phaseID.sequenceNumber &&
                 phaseClass.equals(phaseID.phaseClass);
     }

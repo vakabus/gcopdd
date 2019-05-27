@@ -1,6 +1,8 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.method_local.CompilationEventLocal;
+import cz.cuni.mff.d3s.blood.phaseid.PhaseID;
+import cz.cuni.mff.d3s.blood.phaseid.PhaseOrderPhaseID;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
 import cz.cuni.mff.d3s.blood.utils.ConcurrentMatrix;
@@ -55,7 +57,7 @@ public final class DependencyMatrixCollector {
     }
     
     private static PhaseID getCurrentPhaseId(Class<?> sourceClass) {
-        return new PhaseID(sourceClass);
+        return new PhaseOrderPhaseID(sourceClass);
     }
 
     static final class DependencyMatrix {

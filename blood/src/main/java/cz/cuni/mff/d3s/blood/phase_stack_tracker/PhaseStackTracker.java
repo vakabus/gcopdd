@@ -3,8 +3,12 @@ package cz.cuni.mff.d3s.blood.phase_stack_tracker;
 import cz.cuni.mff.d3s.blood.method_local.CompilationEventLocal;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 
-import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -31,11 +35,24 @@ public class PhaseStackTracker {
         phaseStack.get().pop(phaseClass);
     }
 
+    public int getStackStateID() {
+        return phaseStack.get().stackStateID;
+    }
+
     private static class PhaseStack {
         private Deque<Class> stack = new ArrayDeque<>();
         private List<String> states = new LinkedList<>();
+        
+        /**
+         * stackStateID will always correspond to the index to
+         * {@link PhaseStack#states}, under which the representation of current
+         * state of {@link PhaseStack#stack} will once be accessible.
+         */
+        private int stackStateID = -1;
 
         public void push(Class<?> phaseClass) {
+            stackStateID++;
+            
             stack.addLast(phaseClass);
 
             // update dump
@@ -43,6 +60,8 @@ public class PhaseStackTracker {
         }
 
         public void pop(Class<?> phaseClass) {
+            stackStateID++;
+            
             var out = stack.pollLast();
 
             // sanity check
