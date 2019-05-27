@@ -85,9 +85,7 @@ public final class Report {
 
     private class DumperThread extends Thread {
 
-        private final System.Logger LOGGER = System.getLogger(DumperThread.class.getName());
-
-        private LinkedBlockingQueue<DumpRegistration> dumpQueue = new LinkedBlockingQueue<>();
+        private final LinkedBlockingQueue<DumpRegistration> dumpQueue = new LinkedBlockingQueue<>();
 
         public DumperThread() {
             super("Dumping thread");

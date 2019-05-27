@@ -4,7 +4,6 @@ import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Utility methods for dumping.

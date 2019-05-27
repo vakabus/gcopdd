@@ -15,9 +15,9 @@ import java.util.stream.Collectors;
 
 public final class DependencyMatrixCollector {
     // TODO make this configurable, also works with `new DefaultNodeTracker()`
-    private static NodeTracker nodeTracker = new CustomNodeTracker();
+    private static final NodeTracker nodeTracker = new CustomNodeTracker();
 
-    private static CompilationEventLocal<DependencyMatrix> matrix = new CompilationEventLocal<>(DependencyMatrix::new, dependencyMatrix -> Report.getInstance().dumpNow(new ManualTextDump("depmat", dependencyMatrix::dump)));
+    private static final CompilationEventLocal<DependencyMatrix> matrix = new CompilationEventLocal<>(DependencyMatrix::new, dependencyMatrix -> Report.getInstance().dumpNow(new ManualTextDump("depmat", dependencyMatrix::dump)));
 
     /**
      * This function is called by the instrumentation after the Node class is
@@ -72,12 +72,12 @@ public final class DependencyMatrixCollector {
         private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
 
-        private final ConcurrentOrderedSet<Class> phaseOrder = new ConcurrentOrderedSet<>();
-        private final ConcurrentMatrix<Class, Class, DependencyValue> matrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, DependencyValue.ZERO);
+        private final ConcurrentOrderedSet<PhaseID> phaseOrder = new ConcurrentOrderedSet<>();
+        private final ConcurrentMatrix<PhaseID, PhaseID, DependencyValue> matrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, DependencyValue.ZERO);
 
         public DependencyMatrix() {
-            phaseOrder.add(NodeTracker.NoPhaseDummy.class);
-            phaseOrder.add(NodeTracker.DeletedPhaseDummy.class);
+            phaseOrder.add(NodeTracker.NO_PHASE_DUMMY_PHASE_ID);
+            phaseOrder.add(NodeTracker.DELETED_PHASE_DUMMY_PHASE_ID);
         }
 
         public String dump() {
@@ -86,7 +86,7 @@ public final class DependencyMatrixCollector {
             writeLock.lock();
             try {
                 String header = phaseOrder.stream()
-                        .map(Class::getName)
+                        .map(PhaseID::toString)
                         .collect(Collectors.joining("\n"));
 
                 String data = matrix.toString(phaseOrder::stream, phaseOrder::stream);
@@ -104,12 +104,14 @@ public final class DependencyMatrixCollector {
                 // Dump is already in progress, don't change the matrix any more.
                 return;
             }
+            
+            var phaseID = getCurrentPhaseId(sourceClass);
 
             try {
-                phaseOrder.add(sourceClass);
+                phaseOrder.add(phaseID);
 
                 // obtain row in result matrix for this particular optimization phase
-                var row = matrix.getOrCreateRow(sourceClass);
+                var row = matrix.getOrCreateRow(phaseID);
 
                 // for each node in the graph entering the phase, note down where it was created
                 for (Node node : graph.getNodes()) {
@@ -120,7 +122,7 @@ public final class DependencyMatrixCollector {
                         continue;
                     }
 
-                    var creationPhaseClass = creationPhaseResult.unwrap().phaseClass;
+                    var creationPhaseClass = creationPhaseResult.unwrap();
 
                     DependencyValue value = row.getOrCreate(creationPhaseClass);
                     value.incrementNumberOfSeenNodes(1);

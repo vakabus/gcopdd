@@ -16,6 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class NodeTypeTrackerCollector {
+    @SuppressWarnings("FieldMayBeFinal")
     private static CompilationEventLocal<NodeTypeMatrix> matrix = new CompilationEventLocal<>(NodeTypeMatrix::new, nodeTypeMatrix -> Report.getInstance().dumpNow(new ManualTextDump("nodetypematrix", nodeTypeMatrix::dump)));
 
 
@@ -51,11 +52,11 @@ public class NodeTypeTrackerCollector {
 
         private final ReadWriteLock writers = new ReentrantReadWriteLock(true);
 
-        private ConcurrentMatrix<Class, Class, NodeTrackerValue> preMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
-        private ConcurrentMatrix<Class, Class, NodeTrackerValue> postMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+        private final ConcurrentMatrix<Class, Class, NodeTrackerValue> preMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+        private final ConcurrentMatrix<Class, Class, NodeTrackerValue> postMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
 
-        private ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
-        private ConcurrentOrderedSet<Class> phaseClasses = new ConcurrentOrderedSet<>();
+        private final ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
+        private final ConcurrentOrderedSet<Class> phaseClasses = new ConcurrentOrderedSet<>();
 
         final void updatePre(StructuredGraph graph, Class<?> phaseClass) {
             update(graph, phaseClass, preMatrix);

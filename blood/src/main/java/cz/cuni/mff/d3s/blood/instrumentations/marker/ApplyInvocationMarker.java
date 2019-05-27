@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import ch.usi.dag.disl.marker.AbstractMarker;
 import ch.usi.dag.disl.marker.AbstractDWRMarker;
 
 /**
@@ -19,7 +18,7 @@ public class ApplyInvocationMarker extends AbstractDWRMarker {
 
     @Override
     public List<MarkedRegion> markWithDefaultWeavingReg(MethodNode method) {
-        List<MarkedRegion> regions = new LinkedList<MarkedRegion>();
+        List<MarkedRegion> regions = new LinkedList<>();
 
         // traverse all instructions
         InsnList instructions = method.instructions;

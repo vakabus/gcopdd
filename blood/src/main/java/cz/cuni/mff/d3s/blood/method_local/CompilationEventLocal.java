@@ -65,7 +65,7 @@ public class CompilationEventLocal<T> implements AutoCloseable{
      * This method should be called after this class initialization using instrumentation.
      */
     public static void enableFeature() {
-        if (allInstancesInThisThread.get().size() == 0)
+        if (allInstancesInThisThread.get().isEmpty())
             FEATURE_ENABLED = true;
         else
             throw new UnsupportedOperationException("CompilationEventLocal separation can't be activated, after it has been initialized.");

@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 public class PhaseStackTracker {
     private static PhaseStackTracker instance = null;
-    private CompilationEventLocal<PhaseStack> phaseStack = new CompilationEventLocal<>(PhaseStack::new, PhaseStack::dump);
+    private final CompilationEventLocal<PhaseStack> phaseStack = new CompilationEventLocal<>(PhaseStack::new, PhaseStack::dump);
 
     public static PhaseStackTracker getInstance() {
         if (instance != null)

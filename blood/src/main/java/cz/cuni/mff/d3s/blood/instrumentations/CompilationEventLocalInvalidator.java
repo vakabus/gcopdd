@@ -1,6 +1,5 @@
 package cz.cuni.mff.d3s.blood.instrumentations;
 
-import ch.usi.dag.disl.annotation.After;
 import ch.usi.dag.disl.annotation.Before;
 import ch.usi.dag.disl.marker.BodyMarker;
 import cz.cuni.mff.d3s.blood.method_local.CompilationEventLocal;
