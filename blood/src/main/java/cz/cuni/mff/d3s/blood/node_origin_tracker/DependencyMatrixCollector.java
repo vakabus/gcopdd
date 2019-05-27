@@ -50,7 +50,12 @@ public final class DependencyMatrixCollector {
      * @param sourceClass Class of the running optimization phase
      */
     public static void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        nodeTracker.updateCreationPhase(graph.getNodes(), sourceClass);
+        var phaseID = getCurrentPhaseId(sourceClass);
+        nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
+    }
+    
+    private static PhaseID getCurrentPhaseId(Class<?> sourceClass) {
+        return new PhaseID(sourceClass);
     }
 
     static final class DependencyMatrix {
@@ -115,7 +120,7 @@ public final class DependencyMatrixCollector {
                         continue;
                     }
 
-                    var creationPhaseClass = creationPhaseResult.unwrap();
+                    var creationPhaseClass = creationPhaseResult.unwrap().phaseClass;
 
                     DependencyValue value = row.getOrCreate(creationPhaseClass);
                     value.incrementNumberOfSeenNodes(1);

@@ -10,6 +10,9 @@ import org.graalvm.compiler.phases.BasePhase;
  */
 public interface NodeTracker {
 
+    public static final PhaseID DELETED_PHASE_DUMMY_PHASE_ID = new PhaseID(DeletedPhaseDummy.class, 0);
+    public static final PhaseID NO_PHASE_DUMMY_PHASE_ID = new PhaseID(NoPhaseDummy.class, 0);
+
     /**
      * Should be called right after the {@link Node} class is initialized.
      */
@@ -21,15 +24,15 @@ public interface NodeTracker {
      * @param node the node in question
      * @return class of the phase, or a dummy, or an error message
      */
-    Result<Class<?>, String> getCreationPhase(Node node);
+    Result<PhaseID, String> getCreationPhase(Node node);
 
     /**
      * Should be called after every phase.
      *
      * @param nodes   list of nodes in the graph
-     * @param phaseClass id of the phase in question
+     * @param phaseID id of the phase in question
      */
-    void updateCreationPhase(Iterable<Node> nodes, Class<?> phaseClass);
+    void updateCreationPhase(Iterable<Node> nodes, PhaseID phaseID);
 
     /**
      * Replaces phase class in cases, where the node creation stack trace was
