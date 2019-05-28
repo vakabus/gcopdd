@@ -4,7 +4,6 @@ import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Utility methods for dumping.
@@ -105,14 +104,12 @@ public final class DumpHelpers {
         return reportDir;
     }
 
-    public static final FileOutputStream createDumpFile(File reportDir, String name) throws IOException {
-        File dumpFile = new File(reportDir, name);
+    public static final FileOutputStream createDumpFile(File reportDir, String name, String suffix) throws IOException {
+        File dumpFile = new File(reportDir, name + "." + suffix);
 
-        // make sure the filename is free
-        int i = 1;
-        while (!dumpFile.createNewFile()) {
-            dumpFile = new File(reportDir, name + "." + i);
-            i++;
+        // make sure the filename is available
+        if (!dumpFile.createNewFile()) {
+            throw new RuntimeException("File name is not available: " + dumpFile.getPath());
         }
 
         return new FileOutputStream(dumpFile);
