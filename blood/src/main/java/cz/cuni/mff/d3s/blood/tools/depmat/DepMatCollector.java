@@ -1,11 +1,10 @@
-package cz.cuni.mff.d3s.blood.depmat;
+package cz.cuni.mff.d3s.blood.tools.depmat;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
-import cz.cuni.mff.d3s.blood.phasestack.PhaseID;
+import cz.cuni.mff.d3s.blood.tools.phasestack.PhaseID;
 import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
-import org.graalvm.compiler.phases.Phase;
 
 import java.util.LinkedHashSet;
 import java.util.stream.Collectors;

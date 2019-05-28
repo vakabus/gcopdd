@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.nodemat;
+package cz.cuni.mff.d3s.blood.tools.nodemat;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
 import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;

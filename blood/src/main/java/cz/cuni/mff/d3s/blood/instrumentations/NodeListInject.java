@@ -4,7 +4,7 @@ import ch.usi.dag.disl.annotation.After;
 import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
 import cz.cuni.mff.d3s.blood.report.Manager;
-import cz.cuni.mff.d3s.blood.nodelist.NodeListCollector;
+import cz.cuni.mff.d3s.blood.tools.nodelist.NodeListCollector;
 
 /**
  * Creates a list of node classes.

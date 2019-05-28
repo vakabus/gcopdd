@@ -5,7 +5,7 @@ import ch.usi.dag.disl.annotation.Before;
 import ch.usi.dag.disl.dynamiccontext.DynamicContext;
 import ch.usi.dag.disl.marker.BodyMarker;
 import cz.cuni.mff.d3s.blood.report.Manager;
-import cz.cuni.mff.d3s.blood.depmat.DepMatCollector;
+import cz.cuni.mff.d3s.blood.tools.depmat.DepMatCollector;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 /**

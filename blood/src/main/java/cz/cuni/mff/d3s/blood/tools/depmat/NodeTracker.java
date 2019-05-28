@@ -1,6 +1,6 @@
-package cz.cuni.mff.d3s.blood.depmat;
+package cz.cuni.mff.d3s.blood.tools.depmat;
 
-import cz.cuni.mff.d3s.blood.phasestack.PhaseID;
+import cz.cuni.mff.d3s.blood.tools.phasestack.PhaseID;
 import cz.cuni.mff.d3s.blood.utils.Result;
 import java.io.PrintWriter;
 import java.io.StringWriter;

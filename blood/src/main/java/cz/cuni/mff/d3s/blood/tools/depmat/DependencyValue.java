@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.depmat;
+package cz.cuni.mff.d3s.blood.tools.depmat;
 
 import cz.cuni.mff.d3s.blood.utils.matrix.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;

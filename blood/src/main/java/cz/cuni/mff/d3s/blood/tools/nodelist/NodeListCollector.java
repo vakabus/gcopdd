@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.nodelist;
+package cz.cuni.mff.d3s.blood.tools.nodelist;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
 import org.graalvm.compiler.graph.Node;

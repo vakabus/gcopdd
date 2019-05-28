@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.ceinfo;
+package cz.cuni.mff.d3s.blood.tools.ceinfo;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
 import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
