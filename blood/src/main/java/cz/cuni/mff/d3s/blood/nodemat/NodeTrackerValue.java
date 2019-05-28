@@ -1,6 +1,6 @@
 package cz.cuni.mff.d3s.blood.nodemat;
 
-import cz.cuni.mff.d3s.blood.utils.MatrixValue;
+import cz.cuni.mff.d3s.blood.utils.matrix.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;
 
 //TODO consider merging it with DependencyValue.

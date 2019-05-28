@@ -1,28 +1,28 @@
-package cz.cuni.mff.d3s.blood.utils;
+package cz.cuni.mff.d3s.blood.utils.matrix;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // TODO documentation
-public class ConcurrentMatrix<RowKeyType, ColKeyType, ValueType extends MatrixValue<ValueType>> {
+public class Matrix<RowKeyType, ColKeyType, ValueType extends MatrixValue<ValueType>> {
 
-    private final ConcurrentHashMap<RowKeyType, Row> rows;
+    private final HashMap<RowKeyType, Row> rows;
     private final int initialCapacity;
     private final UnmodifiableRow defaultRow;
     private final ValueType defaultValue;
 
-    public ConcurrentMatrix(int initialCapacity, ValueType defaultValue) {
+    public Matrix(int initialCapacity, ValueType defaultValue) {
         this.initialCapacity = initialCapacity;
-        rows = new ConcurrentHashMap<>(initialCapacity);
+        rows = new HashMap<>(initialCapacity);
         defaultRow = new UnmodifiableRow();
         this.defaultValue = defaultValue;
     }
 
-    public ConcurrentMatrix(ValueType defaultValue) {
+    public Matrix(ValueType defaultValue) {
         this.initialCapacity = 0;
-        rows = new ConcurrentHashMap<>();
+        rows = new HashMap<>();
         defaultRow = new UnmodifiableRow();
         this.defaultValue = defaultValue;
     }
@@ -54,13 +54,13 @@ public class ConcurrentMatrix<RowKeyType, ColKeyType, ValueType extends MatrixVa
 
     public class UnmodifiableRow {
 
-        protected final ConcurrentHashMap<ColKeyType, ValueType> values;
+        protected final HashMap<ColKeyType, ValueType> values;
 
         private UnmodifiableRow() {
             if (initialCapacity == 0) {
-                values = new ConcurrentHashMap<>();
+                values = new HashMap<>();
             } else {
-                values = new ConcurrentHashMap<>(initialCapacity);
+                values = new HashMap<>(initialCapacity);
             }
         }
 

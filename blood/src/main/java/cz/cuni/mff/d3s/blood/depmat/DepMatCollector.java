@@ -2,11 +2,11 @@ package cz.cuni.mff.d3s.blood.depmat;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
 import cz.cuni.mff.d3s.blood.phasestack.PhaseID;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentMatrix;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentOrderedSet;
+import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
+import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 
 public final class DepMatCollector implements TextDump {
@@ -15,8 +15,8 @@ public final class DepMatCollector implements TextDump {
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
-    private final ConcurrentOrderedSet<PhaseID> phaseOrder = new ConcurrentOrderedSet<>();
-    private final ConcurrentMatrix<PhaseID, PhaseID, DependencyValue> matrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, DependencyValue.ZERO);
+    private final LinkedHashSet<PhaseID> phaseOrder = new LinkedHashSet<>();
+    private final Matrix<PhaseID, PhaseID, DependencyValue> matrix = new Matrix<>(HASHMAP_INIT_CAPACITY, DependencyValue.ZERO);
 
     /**
      * This function is called by the instrumentation before every optimization

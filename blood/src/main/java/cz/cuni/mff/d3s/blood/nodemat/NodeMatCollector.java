@@ -1,12 +1,12 @@
 package cz.cuni.mff.d3s.blood.nodemat;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentMatrix;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentOrderedSet;
+import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -14,11 +14,11 @@ public class NodeMatCollector implements TextDump {
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
-    private final ConcurrentMatrix<Class, Class, NodeTrackerValue> preMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
-    private final ConcurrentMatrix<Class, Class, NodeTrackerValue> postMatrix = new ConcurrentMatrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+    private final Matrix<Class, Class, NodeTrackerValue> preMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+    private final Matrix<Class, Class, NodeTrackerValue> postMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
 
-    private final ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
-    private final ConcurrentOrderedSet<Class> phaseClasses = new ConcurrentOrderedSet<>();
+    private final LinkedHashSet<Class> nodeClasses = new LinkedHashSet<>();
+    private final LinkedHashSet<Class> phaseClasses = new LinkedHashSet<>();
 
 
     /**
@@ -46,13 +46,13 @@ public class NodeMatCollector implements TextDump {
         update(graph, sourceClass, postMatrix);
     }
 
-    private void update(StructuredGraph graph, Class phaseClass, ConcurrentMatrix<Class, Class, NodeTrackerValue> matrix) {
+    private void update(StructuredGraph graph, Class phaseClass, Matrix<Class, Class, NodeTrackerValue> matrix) {
         phaseClasses.add(phaseClass);
 
         updateRow(graph, matrix.getOrCreateRow(phaseClass));
     }
 
-    private void updateRow(StructuredGraph graph, ConcurrentMatrix<Class, Class, NodeTrackerValue>.Row row) {
+    private void updateRow(StructuredGraph graph, Matrix<Class, Class, NodeTrackerValue>.Row row) {
         HashMap<Class, Long> nodeCount = new HashMap<>();
         for (Node n : graph.getNodes()) {
             Long count = nodeCount.getOrDefault(n.getClass(), 0l);
