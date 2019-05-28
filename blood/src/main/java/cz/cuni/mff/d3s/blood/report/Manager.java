@@ -25,9 +25,11 @@ public final class Manager {
             public void run() {
                 try {
                     File reportDir = DumpHelpers.createReportDir();
+                    long dumpIndex = 0; // protects against compilation request id collisions
                     while (true) {
                         var d = pendingDumps.take();
-                        d.getDumpMap().dump(reportDir, d.getCompilationRequestId());
+                        d.getDumpMap().dump(reportDir, d.getCompilationRequestId() + " #" + dumpIndex);
+                        dumpIndex++;
                     }
                 } catch (InterruptedException ex) {
                     Logger.getLogger(DumpMap.class.getName()).log(Level.INFO, "Dump IO thread stopping due to InterruptedException.");
