@@ -24,7 +24,7 @@ public final class Manager {
             @Override
             public void run() {
                 try {
-                    File reportDir = DumpHelpers.createReportDir();
+                    File reportDir = DumpHelpers.getReportDir();
                     long dumpIndex = 0; // protects against compilation request id collisions
                     while (true) {
                         var d = pendingDumps.take();

@@ -10,9 +10,11 @@ All data are collected per compilation unit. In practise it means that data are 
 
 All results are accumulated in `dumps` directory located in the working directory of running application. In there, there are directories - one for every run. In them all the data are stored in a series of files.
 
-### Data files naming
+### Data files naming and format
 
-TODO
+All files are named in similar fashion. Their name starts with an opaque alphanumeric identifier and it is followed by an extension specifying the tool which created the file. There is also special `.request` file type, that contains compilation request identifier, which could be presented to the user.
+
+Format is always plain text in UTF-8 encoding. The files can also be compressed using gzip. Then their filename will end with `.gz`.
 
 ## Collection tools
 
