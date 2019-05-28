@@ -104,8 +104,8 @@ public final class DumpHelpers {
         return reportDir;
     }
 
-    public static final FileOutputStream createDumpFile(File reportDir, String name, String suffix) throws IOException {
-        File dumpFile = new File(reportDir, name + "." + suffix);
+    public static final FileOutputStream createDumpFile(File reportDir, String dumpType, String id) throws IOException {
+        File dumpFile = new File(reportDir, id + "." + dumpType);
 
         // make sure the filename is available
         if (!dumpFile.createNewFile()) {
