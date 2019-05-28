@@ -5,7 +5,7 @@ import static cz.cuni.mff.d3s.blood.utils.Miscellaneous.getSignatureOfMethod;
 import static cz.cuni.mff.d3s.blood.utils.Miscellaneous.crGetMethod;
 import java.time.Instant;
 
-public class CeinfoCollector extends TextDump {
+public class CeinfoCollector implements TextDump {
 
     private boolean initialized = false;
     private String method = null;

@@ -1,11 +1,13 @@
 package cz.cuni.mff.d3s.blood.report;
 
-public abstract class TextDump implements Dump {
+import java.nio.charset.Charset;
+
+public interface TextDump extends Dump {
 
     @Override
-    public byte[] getData() {
-        return getText().getBytes();
+    default byte[] getData() {
+        return getText().getBytes(Charset.forName("utf8"));
     }
 
-    public abstract String getText();
+    String getText();
 }

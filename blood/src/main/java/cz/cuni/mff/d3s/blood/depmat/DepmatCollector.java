@@ -9,7 +9,7 @@ import org.graalvm.compiler.nodes.StructuredGraph;
 
 import java.util.stream.Collectors;
 
-public final class DepmatCollector extends TextDump {
+public final class DepmatCollector implements TextDump {
     private static final NodeTracker nodeTracker = new NodeTracker();
 
     // the default of 16 doesn't fit even the most trivial programs

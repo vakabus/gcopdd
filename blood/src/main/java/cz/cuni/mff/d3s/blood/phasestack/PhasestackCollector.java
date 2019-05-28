@@ -8,7 +8,7 @@ import java.util.List;
 
 import java.util.stream.Collectors;
 
-public class PhasestackCollector extends TextDump {
+public class PhasestackCollector implements TextDump {
 
     private final Deque<Class> stack = new ArrayDeque<>();
     private final List<String> states = new LinkedList<>();

@@ -6,7 +6,7 @@ import org.graalvm.compiler.graph.Node;
 
 import java.util.stream.Collectors;
 
-public class NodelistCollector extends TextDump {
+public class NodelistCollector implements TextDump {
     private final ConcurrentOrderedSet<Class> nodeClasses = new ConcurrentOrderedSet<>();
     
     public void onNodeInstantiation(Class nodeClass) {
