@@ -1,11 +1,11 @@
 package cz.cuni.mff.d3s.blood.ceinfo;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
-import static cz.cuni.mff.d3s.blood.utils.Miscellaneous.getSignatureOfMethod;
-import static cz.cuni.mff.d3s.blood.utils.Miscellaneous.crGetMethod;
+import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
+
 import java.time.Instant;
 
-public class CeinfoCollector implements TextDump {
+public class CEInfoCollector implements TextDump {
 
     private boolean initialized = false;
     private String method = null;
@@ -27,8 +27,7 @@ public class CeinfoCollector implements TextDump {
     }
     
     public void beforeCompileMethod(Object compilationRequest) {
-        Object methodObject = crGetMethod(compilationRequest);
-        String methodSignature = getSignatureOfMethod(methodObject);
+        String methodSignature = Miscellaneous.getCompiledMethodSignature(compilationRequest);
         init(methodSignature);
     }
 

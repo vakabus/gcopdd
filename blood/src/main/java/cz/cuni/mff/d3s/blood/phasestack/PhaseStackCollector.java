@@ -8,15 +8,15 @@ import java.util.List;
 
 import java.util.stream.Collectors;
 
-public class PhasestackCollector implements TextDump {
+public class PhaseStackCollector implements TextDump {
 
     private final Deque<Class> stack = new ArrayDeque<>();
     private final List<String> states = new LinkedList<>();
 
     /**
      * stackStateID will always correspond to the index to
-     * {@link PhasestackCollector#states}, under which the representation of current
-     * state of {@link PhasestackCollector#stack} will once be accessible.
+     * {@link PhaseStackCollector#states}, under which the representation of current
+     * state of {@link PhaseStackCollector#stack} will once be accessible.
      */
     public int stackStateID = -1;
 

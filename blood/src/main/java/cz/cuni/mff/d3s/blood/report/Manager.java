@@ -10,12 +10,14 @@ public final class Manager {
     /**
      * Contains dumps that are complete and are scheduled for writing out.
      */
-    private static final LinkedBlockingQueue<DumpMap> pendingDumps = new LinkedBlockingQueue<>();
+    private static final LinkedBlockingQueue<DumpConfig> pendingDumps = new LinkedBlockingQueue<>();
 
     /**
      * Contains the data that are currently collected.
      */
     private static final ThreadLocal<DumpMap> dumpMap = ThreadLocal.withInitial(DumpMap::new);
+    private static final ThreadLocal<Boolean> threadDumpInitialized = ThreadLocal.withInitial(() -> false);
+    private static String currentlyCompiledMethodSignature = null;
 
     static {
         new Thread("Dump IO") {
@@ -23,8 +25,9 @@ public final class Manager {
             public void run() {
                 try {
                     File reportDir = DumpHelpers.createReportDir();
-                    for (int i = 0;; i++) {
-                        pendingDumps.take().dump(reportDir, i);
+                    while (true) {
+                        var d = pendingDumps.take();
+                        d.getDumpMap().dump(reportDir, d.getCompilationRequestId());
                     }
                 } catch (InterruptedException ex) {
                     Logger.getLogger(DumpMap.class.getName()).log(Level.INFO, "Dump IO thread stopping due to InterruptedException.");
@@ -37,8 +40,34 @@ public final class Manager {
         return dumpMap.get().get(clazz);
     }
 
-    public static void markNewCompilation() {
-        pendingDumps.add(dumpMap.get());
+    public static void markNewCompilation(String compilationRequestId) {
+        // dump if this thread already started compiling something
+        if (threadDumpInitialized.get())
+            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledMethodSignature));
+        else
+            threadDumpInitialized.set(true);
+
+        // prepare for new compilation
         dumpMap.set(new DumpMap());
+        currentlyCompiledMethodSignature = compilationRequestId;
+    }
+
+
+    private static final class DumpConfig {
+        DumpMap dumpMap;
+        String compilationRequestId;
+
+        public DumpConfig(DumpMap dumpMap, String compilationRequestID) {
+            this.dumpMap = dumpMap;
+            this.compilationRequestId = compilationRequestID;
+        }
+
+        public DumpMap getDumpMap() {
+            return dumpMap;
+        }
+
+        public String getCompilationRequestId() {
+            return compilationRequestId;
+        }
     }
 }

@@ -1,7 +1,6 @@
 package cz.cuni.mff.d3s.blood.phasestack;
 
 import cz.cuni.mff.d3s.blood.report.Manager;
-import cz.cuni.mff.d3s.blood.phasestack.PhasestackCollector;
 
 public class PhaseID {
 
@@ -9,10 +8,10 @@ public class PhaseID {
     public final int id;
 
     public PhaseID() {
-        this(Manager.get(PhasestackCollector.class).stackStateID);
+        this(Manager.get(PhaseStackCollector.class).stackStateID);
     }
 
     private PhaseID(int id) {
-        this.id = Manager.get(PhasestackCollector.class).stackStateID;
+        this.id = Manager.get(PhaseStackCollector.class).stackStateID;
     }
 }

@@ -1,8 +1,11 @@
 package cz.cuni.mff.d3s.blood.report;
 
+import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,15 +18,27 @@ public final class DumpMap {
         return (T) map.computeIfAbsent(clazz, Dump::instantiate);
     }
     
-    public final void dump(File reportDir, int i) {
+    public final void dump(File reportDir, String compilationRequestId) {
+        String suffix = Miscellaneous.shortTextHash(compilationRequestId);
+
+        dumpCompilationRequestId(reportDir, compilationRequestId, suffix);
+
         for (Dump dump : map.values()) {
             String name = dump.getName();
             byte[] data = dump.getData();
-            try(FileOutputStream fos = DumpHelpers.createDumpFile(reportDir, name, i)) {
+            try (var fos = DumpHelpers.createDumpFile(reportDir, name, suffix)) {
                 fos.write(data);
             } catch (IOException ex) {
                 Logger.getLogger(DumpMap.class.getName()).log(Level.WARNING, name, ex);
             }
+        }
+    }
+
+    private void dumpCompilationRequestId(File reportDir, String compilationRequestId, String suffix) {
+        try (var fos = DumpHelpers.createDumpFile(reportDir, "compilationRequest", suffix)) {
+            fos.write(compilationRequestId.getBytes("utf8"));
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

@@ -1,5 +1,12 @@
 package cz.cuni.mff.d3s.blood.utils;
 
+import ch.usi.dag.util.Assert;
+
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+
 public final class Miscellaneous {
 
     /**
@@ -38,5 +45,32 @@ public final class Miscellaneous {
         int left = s.indexOf('<');
         int right = s.lastIndexOf('>');
         return s.substring(left + 1, right == -1 ? s.length() : right);
+    }
+
+    public static String getCompiledMethodSignature(Object compilationRequest) {
+        Object methodObject = crGetMethod(compilationRequest);
+        return getSignatureOfMethod(methodObject);
+    }
+
+
+    public static String shortTextHash(String toHash) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-512");
+            var bytes = md.digest(toHash.getBytes("utf8"));
+
+            return bytesToHex(Arrays.copyOfRange(bytes, 0, 8));
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            throw new AssertionError("Hardcoded algorithm names are invalid.", e);
+        }
+    }
+
+
+    public static String bytesToHex(byte[] arr) {
+        var sb = new StringBuilder();
+        for (byte b : arr) {
+            sb.append(String.format("%02x", b));
+        }
+
+        return sb.toString();
     }
 }
