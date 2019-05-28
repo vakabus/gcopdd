@@ -1,6 +1,7 @@
 package cz.cuni.mff.d3s.blood.report;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -18,8 +19,8 @@ public final class DumpMap {
         for (Dump dump : map.values()) {
             String name = dump.getName();
             byte[] data = dump.getData();
-            try {
-                DumpHelpers.createDumpFile(reportDir, name, i).write(data);
+            try(FileOutputStream fos = DumpHelpers.createDumpFile(reportDir, name, i)) {
+                fos.write(data);
             } catch (IOException ex) {
                 Logger.getLogger(DumpMap.class.getName()).log(Level.WARNING, name, ex);
             }
