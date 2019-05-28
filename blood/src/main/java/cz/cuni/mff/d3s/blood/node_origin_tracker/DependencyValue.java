@@ -1,6 +1,6 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
-import cz.cuni.mff.d3s.blood.utils.MatrixValue;
+import cz.cuni.mff.d3s.blood.utils.matrix.MatrixValue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class DependencyValue implements MatrixValue<DependencyValue> {

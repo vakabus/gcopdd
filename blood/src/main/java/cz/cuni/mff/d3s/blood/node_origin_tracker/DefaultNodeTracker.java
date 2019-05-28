@@ -1,7 +1,7 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.phaseid.PhaseID;
-import cz.cuni.mff.d3s.blood.phaseid.PhaseOrderPhaseID;
+import cz.cuni.mff.d3s.blood.phaseid.PhaseStackID;
 import cz.cuni.mff.d3s.blood.utils.Miscellaneous;
 import cz.cuni.mff.d3s.blood.utils.Result;
 import java.io.PrintWriter;
@@ -103,7 +103,7 @@ public class DefaultNodeTracker implements NodeTracker {
                 .map(Result::unwrap)
                 .filter(BasePhase.class::isAssignableFrom)
                 .findFirst()
-                .map(aClass -> (PhaseID) new PhaseOrderPhaseID(aClass, 0))
+                .map(aClass -> (PhaseID) new PhaseStackID(aClass, 0))
                 .orElse(NodeTracker.NO_PHASE_DUMMY_PHASE_ID));
     }
 

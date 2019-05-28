@@ -1,7 +1,7 @@
 package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.phaseid.PhaseID;
-import cz.cuni.mff.d3s.blood.phaseid.PhaseOrderPhaseID;
+import cz.cuni.mff.d3s.blood.phaseid.PhaseStackID;
 import cz.cuni.mff.d3s.blood.utils.Result;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.phases.BasePhase;
@@ -12,8 +12,8 @@ import org.graalvm.compiler.phases.BasePhase;
  */
 public interface NodeTracker {
 
-    public static final PhaseID DELETED_PHASE_DUMMY_PHASE_ID = new PhaseOrderPhaseID(DeletedPhaseDummy.class, 0);
-    public static final PhaseID NO_PHASE_DUMMY_PHASE_ID = new PhaseOrderPhaseID(NoPhaseDummy.class, 0);
+    public static final PhaseID DELETED_PHASE_DUMMY_PHASE_ID = new PhaseStackID(DeletedPhaseDummy.class, 0);
+    public static final PhaseID NO_PHASE_DUMMY_PHASE_ID = new PhaseStackID(NoPhaseDummy.class, 0);
 
     /**
      * Should be called right after the {@link Node} class is initialized.

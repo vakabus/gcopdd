@@ -3,7 +3,7 @@ package cz.cuni.mff.d3s.blood.node_type_tracker;
 import cz.cuni.mff.d3s.blood.method_local.CompilationEventLocal;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentMatrix;
+import cz.cuni.mff.d3s.blood.utils.matrix.ConcurrentMatrix;
 import cz.cuni.mff.d3s.blood.utils.ConcurrentOrderedSet;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;

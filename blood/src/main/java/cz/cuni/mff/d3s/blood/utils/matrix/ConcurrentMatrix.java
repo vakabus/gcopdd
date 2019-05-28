@@ -1,4 +1,4 @@
-package cz.cuni.mff.d3s.blood.utils;
+package cz.cuni.mff.d3s.blood.utils.matrix;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;

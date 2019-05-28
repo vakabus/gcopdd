@@ -11,13 +11,13 @@ public class PhaseStackTrackerInject {
     public static void beforePhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
 
-        PhaseStackTracker.getInstance().onPhaseEntered(thiz.getClass());
+        PhaseStackTracker.onPhaseEntered(thiz.getClass());
     }
 
     @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
     public static void afterPhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
 
-        PhaseStackTracker.getInstance().onPhaseExit(thiz.getClass());
+        PhaseStackTracker.onPhaseExit(thiz.getClass());
     }
 }

@@ -2,10 +2,10 @@ package cz.cuni.mff.d3s.blood.node_origin_tracker;
 
 import cz.cuni.mff.d3s.blood.method_local.CompilationEventLocal;
 import cz.cuni.mff.d3s.blood.phaseid.PhaseID;
-import cz.cuni.mff.d3s.blood.phaseid.PhaseOrderPhaseID;
+import cz.cuni.mff.d3s.blood.phaseid.PhaseStackID;
 import cz.cuni.mff.d3s.blood.report.Report;
 import cz.cuni.mff.d3s.blood.report.dump.ManualTextDump;
-import cz.cuni.mff.d3s.blood.utils.ConcurrentMatrix;
+import cz.cuni.mff.d3s.blood.utils.matrix.ConcurrentMatrix;
 import cz.cuni.mff.d3s.blood.utils.ConcurrentOrderedSet;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
@@ -57,7 +57,7 @@ public final class DependencyMatrixCollector {
     }
     
     private static PhaseID getCurrentPhaseId(Class<?> sourceClass) {
-        return new PhaseOrderPhaseID(sourceClass);
+        return new PhaseStackID(sourceClass);
     }
 
     static final class DependencyMatrix {
