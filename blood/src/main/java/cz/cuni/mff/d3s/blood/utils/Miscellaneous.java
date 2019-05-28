@@ -3,6 +3,7 @@ package cz.cuni.mff.d3s.blood.utils;
 import ch.usi.dag.util.Assert;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -56,10 +57,10 @@ public final class Miscellaneous {
     public static String shortTextHash(String toHash) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-512");
-            var bytes = md.digest(toHash.getBytes("utf8"));
+            var bytes = md.digest(toHash.getBytes(StandardCharsets.UTF_8));
 
             return bytesToHex(Arrays.copyOfRange(bytes, 0, 8));
-        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new AssertionError("Hardcoded algorithm names are invalid.", e);
         }
     }

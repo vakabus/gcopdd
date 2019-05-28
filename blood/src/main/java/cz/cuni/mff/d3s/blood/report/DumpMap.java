@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -14,7 +15,8 @@ public final class DumpMap {
 
     private final HashMap<Class<? extends Dump>, Dump> map = new HashMap<>();
 
-    public final<T extends Dump> T get(Class<T> clazz) {
+    @SuppressWarnings("unchecked")
+    public final <T extends Dump> T get(Class<T> clazz) {
         return (T) map.computeIfAbsent(clazz, Dump::instantiate);
     }
     
@@ -36,7 +38,7 @@ public final class DumpMap {
 
     private void dumpCompilationRequestId(File reportDir, String compilationRequestId, String suffix) {
         try (var fos = DumpHelpers.createDumpFile(reportDir, "compilationRequest", suffix)) {
-            fos.write(compilationRequestId.getBytes("utf8"));
+            fos.write(compilationRequestId.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             e.printStackTrace();
         }
