@@ -7,11 +7,11 @@ public class PhaseID {
     public static final PhaseID NO_PHASE = new PhaseID(-2);
     public final int id;
 
-    public PhaseID() {
-        this(Manager.get(PhaseStackCollector.class).stackStateID);
+    public static PhaseID getCurrent() {
+        return new PhaseID(Manager.get(PhaseStackCollector.class).getStackStateID());
     }
 
     private PhaseID(int id) {
-        this.id = Manager.get(PhaseStackCollector.class).stackStateID;
+        this.id = id;
     }
 }

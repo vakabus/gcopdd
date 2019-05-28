@@ -5,6 +5,7 @@ import cz.cuni.mff.d3s.blood.phasestack.PhaseID;
 import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
+import org.graalvm.compiler.phases.Phase;
 
 import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
@@ -27,7 +28,8 @@ public final class DepMatCollector implements TextDump {
      * @param sourceClass Class of the optimization phase running
      */
     public void prePhase(StructuredGraph graph, Class<?> sourceClass) {
-        var phaseID = getCurrentPhaseId(sourceClass);
+        var phaseID = PhaseID.getCurrent();
+        phaseOrder.add(phaseID);
 
         // obtain row in result matrix for this particular optimization phase
         var row = matrix.getOrCreateRow(phaseID);
@@ -64,12 +66,8 @@ public final class DepMatCollector implements TextDump {
      * @param sourceClass Class of the running optimization phase
      */
     public void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        var phaseID = getCurrentPhaseId(sourceClass);
+        var phaseID = PhaseID.getCurrent();
         nodeTracker.updateCreationPhase(graph.getNodes(), phaseID);
-    }
-    
-    private PhaseID getCurrentPhaseId(Class<?> sourceClass) {
-        return new PhaseID();
     }
 
     @Override

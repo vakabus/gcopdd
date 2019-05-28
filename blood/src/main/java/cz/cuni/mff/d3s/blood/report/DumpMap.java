@@ -37,7 +37,7 @@ public final class DumpMap {
     }
 
     private void dumpCompilationRequestId(File reportDir, String compilationRequestId, String suffix) {
-        try (var fos = DumpHelpers.createDumpFile(reportDir, "compilationRequest", suffix)) {
+        try (var fos = DumpHelpers.createDumpFile(reportDir, "request", suffix)) {
             fos.write(compilationRequestId.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             e.printStackTrace();

@@ -17,7 +17,7 @@ public final class Manager {
      */
     private static final ThreadLocal<DumpMap> dumpMap = ThreadLocal.withInitial(DumpMap::new);
     private static final ThreadLocal<Boolean> threadDumpInitialized = ThreadLocal.withInitial(() -> false);
-    private static String currentlyCompiledMethodSignature = null;
+    private static String currentlyCompiledCompilationRequest = null;
 
     static {
         new Thread("Dump IO") {
@@ -45,13 +45,13 @@ public final class Manager {
     public static void markNewCompilation(String compilationRequestId) {
         // dump if this thread already started compiling something
         if (threadDumpInitialized.get())
-            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledMethodSignature));
+            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledCompilationRequest));
         else
             threadDumpInitialized.set(true);
 
         // prepare for new compilation
         dumpMap.set(new DumpMap());
-        currentlyCompiledMethodSignature = compilationRequestId;
+        currentlyCompiledCompilationRequest = compilationRequestId;
     }
 
 
