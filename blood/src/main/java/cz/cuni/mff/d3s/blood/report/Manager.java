@@ -79,7 +79,7 @@ public final class Manager {
         }
 
         public String getCompilationUnitInfo(long index) {
-            return compilationRequestId + " #" + index;
+            return compilationRequestId + " #" + index + "\n";
         }
 
         public Instant getCompilationStart() {
