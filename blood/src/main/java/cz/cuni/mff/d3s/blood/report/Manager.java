@@ -1,6 +1,8 @@
 package cz.cuni.mff.d3s.blood.report;
 
 import java.io.File;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +18,7 @@ public final class Manager {
      * Contains the data that are currently collected.
      */
     private static final ThreadLocal<DumpMap> dumpMap = ThreadLocal.withInitial(DumpMap::new);
+    private static final ThreadLocal<Instant> lastMarkInstant = ThreadLocal.withInitial(() -> null);
     private static final ThreadLocal<Boolean> threadDumpInitialized = ThreadLocal.withInitial(() -> false);
     private static String currentlyCompiledCompilationRequest = null;
 
@@ -28,7 +31,7 @@ public final class Manager {
                     long dumpIndex = 0; // protects against compilation request id collisions
                     while (true) {
                         var d = pendingDumps.take();
-                        d.getDumpMap().dump(reportDir, d.getCompilationRequestId() + " #" + dumpIndex);
+                        d.getDumpMap().dump(reportDir, d.getCompilationUnitInfo(dumpIndex));
                         dumpIndex++;
                     }
                 } catch (InterruptedException ex) {
@@ -43,33 +46,42 @@ public final class Manager {
     }
 
     public static void markNewCompilation(String compilationRequestId) {
+        Instant now = Instant.now();
+
         // dump if this thread already started compiling something
-        if (threadDumpInitialized.get())
-            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledCompilationRequest));
-        else
+        if (threadDumpInitialized.get()) {
+            Duration compilationDuration = Duration.between(lastMarkInstant.get(), now);
+            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledCompilationRequest, compilationDuration, lastMarkInstant.get()));
+        } else {
             threadDumpInitialized.set(true);
+        }
 
         // prepare for new compilation
         dumpMap.set(new DumpMap());
         currentlyCompiledCompilationRequest = compilationRequestId;
+        lastMarkInstant.set(now);
     }
 
 
     private static final class DumpConfig {
-        DumpMap dumpMap;
-        String compilationRequestId;
+        private final DumpMap dumpMap;
+        private final String compilationRequestId;
+        private final Duration duration;
+        private final Instant compilationStart;
 
-        public DumpConfig(DumpMap dumpMap, String compilationRequestID) {
+        public DumpConfig(DumpMap dumpMap, String compilationRequestID, Duration compilationDuration, Instant compilationStart) {
             this.dumpMap = dumpMap;
             this.compilationRequestId = compilationRequestID;
+            this.duration = compilationDuration;
+            this.compilationStart = compilationStart;
         }
 
         public DumpMap getDumpMap() {
             return dumpMap;
         }
 
-        public String getCompilationRequestId() {
-            return compilationRequestId;
+        public String getCompilationUnitInfo(long index) {
+            return compilationRequestId + " #" + index + "[started at "+compilationStart.toString() + ", took " + duration.toMillis() + "ms]\n";
         }
     }
 }
