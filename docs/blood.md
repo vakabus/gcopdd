@@ -12,7 +12,7 @@ All results are accumulated in `dumps` directory located in the working director
 
 ### Data files naming and format
 
-All files are named in similar fashion. Their name starts with an opaque alphanumeric identifier and it is followed by an extension specifying the tool which created the file. There is also special `.request` file type, that contains compilation request identifier, which could be presented to the user.
+All files are named in similar fashion. Their name starts with an opaque alphanumeric identifier and it is followed by an extension specifying the tool which created the file. There are two special file types - `.request` and `.timing`. `.request` file type contains compilation request identifier, which could be presented to the user. `.timing` file type contains information about when compilation occured and how long it took, so that it could be used for sorting.
 
 Format is always plain text in UTF-8 encoding. The files can also be compressed using gzip. Then their filename will end with `.gz`.
 
