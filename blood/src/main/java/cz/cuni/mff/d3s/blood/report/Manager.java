@@ -29,7 +29,7 @@ public final class Manager {
                     long dumpIndex = 0; // protects against compilation request id collisions
                     while (true) {
                         var d = pendingDumps.take();
-                        d.getDumpMap().dump(reportDir, d.getCompilationUnitInfo(dumpIndex));
+                        d.getDumpMap().dump(reportDir, d, dumpIndex);
                         dumpIndex++;
                     }
                 } catch (InterruptedException ex) {
@@ -61,7 +61,7 @@ public final class Manager {
     }
 
 
-    private static final class DumpConfig {
+    public static final class DumpConfig {
         private final DumpMap dumpMap;
         private final String compilationRequestId;
         private final Duration duration;
@@ -79,7 +79,15 @@ public final class Manager {
         }
 
         public String getCompilationUnitInfo(long index) {
-            return compilationRequestId + " #" + index + "[started at " + compilationStart.toString() + ", took " + duration.toMillis() + "ms]\n";
+            return compilationRequestId + " #" + index;
+        }
+
+        public Instant getCompilationStart() {
+            return compilationStart;
+        }
+
+        public Duration getCompilationDuration() {
+            return duration;
         }
     }
 }
