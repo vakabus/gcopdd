@@ -18,9 +18,7 @@ public final class Manager {
      * Contains the data that are currently collected.
      */
     private static final ThreadLocal<DumpMap> dumpMap = ThreadLocal.withInitial(DumpMap::new);
-    private static final ThreadLocal<Instant> lastMarkInstant = ThreadLocal.withInitial(() -> null);
-    private static final ThreadLocal<Boolean> threadDumpInitialized = ThreadLocal.withInitial(() -> false);
-    private static String currentlyCompiledCompilationRequest = null;
+    private static final ThreadLocal<Instant> compilationStart = ThreadLocal.withInitial(() -> null);
 
     static {
         new Thread("Dump IO") {
@@ -45,21 +43,21 @@ public final class Manager {
         return dumpMap.get().get(clazz);
     }
 
-    public static void markNewCompilation(String compilationRequestId) {
+    public static void markCompilationStart(String compilationRequestId) {
+        dumpMap.set(new DumpMap());           // clear potentially garbage data
+        compilationStart.set(Instant.now());  // save compilation start time
+    }
+
+    public static void markCompilationEnd(String compilationRequestId) {
+        // calculate duration of the compilation
         Instant now = Instant.now();
+        Duration compilationDuration = Duration.between(compilationStart.get(), now);
 
-        // dump if this thread already started compiling something
-        if (threadDumpInitialized.get()) {
-            Duration compilationDuration = Duration.between(lastMarkInstant.get(), now);
-            pendingDumps.add(new DumpConfig(dumpMap.get(), currentlyCompiledCompilationRequest, compilationDuration, lastMarkInstant.get()));
-        } else {
-            threadDumpInitialized.set(true);
-        }
+        // dump data
+        pendingDumps.add(new DumpConfig(dumpMap.get(), compilationRequestId, compilationDuration, compilationStart.get()));
 
-        // prepare for new compilation
+        // replace data with something different, so that it does not affect the currently dumped information
         dumpMap.set(new DumpMap());
-        currentlyCompiledCompilationRequest = compilationRequestId;
-        lastMarkInstant.set(now);
     }
 
 
@@ -81,7 +79,7 @@ public final class Manager {
         }
 
         public String getCompilationUnitInfo(long index) {
-            return compilationRequestId + " #" + index + "[started at "+compilationStart.toString() + ", took " + duration.toMillis() + "ms]\n";
+            return compilationRequestId + " #" + index + "[started at " + compilationStart.toString() + ", took " + duration.toMillis() + "ms]\n";
         }
     }
 }
