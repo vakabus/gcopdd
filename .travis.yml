@@ -1,4 +1,9 @@
 language: java
 jdk: openjdk11
 script: make build
+cache:
+  directories:
+    - graal/
+    - mx/
+    - PLuG/
 
