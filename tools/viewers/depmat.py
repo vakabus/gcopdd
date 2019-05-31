@@ -1,5 +1,5 @@
 from itertools import takewhile
-from viewers_common import *
+from viewers.common import *
 
 
 def html_td(dv, row_desc, col_desc):

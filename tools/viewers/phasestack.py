@@ -1,6 +1,6 @@
 from collections import namedtuple
 from itertools import takewhile
-from viewers_common import *
+from viewers.common import *
 
 
 TreeNode = namedtuple('TreeNode', ['parent', 'desc', 'children'])

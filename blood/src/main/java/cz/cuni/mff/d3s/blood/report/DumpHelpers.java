@@ -93,7 +93,7 @@ public final class DumpHelpers {
      * @return the name without any directories
      */
     public static final String getReportDirBaseName(String type) {
-        return getTestName() + "." + getDateString();
+        return getDateString() + "." + getTestName();
     }
 
     public static final File getReportDir() {

@@ -1,7 +1,7 @@
 from collections import namedtuple
 from datetime import datetime
 from math import log
-from viewers_common import *
+from viewers.common import *
 
 
 CompilationEvent = namedtuple('CompilationEvent', ['method', 'recompNumber', 'phases', 'started', 'finished', 'duration', 'logdur'])

@@ -1,5 +1,5 @@
 from itertools import takewhile
-from viewers_common import *
+from viewers.common import *
 
 
 def html_class(desc):

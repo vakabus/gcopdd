@@ -1,19 +1,135 @@
-from collections import namedtuple, OrderedDict
-from os import listdir, path, mkdir
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import import_module
+from os import listdir, path, mkdir
+from sys import argv, stderr
 from threading import Thread
-from shutil import copyfileobj
-from sys import argv
+import gzip
 import traceback
-import re
 
 
-PATH_PATTERN = re.compile('/([^./?]+)\.([^./?]+)/([^/?]+?)(?:\.([0-9]+))?\.html')
+#####################
+## Utility methods ##
+#####################
+
+
+def fsplit(string, delim, count):
+	count -= string.count(delim)
+	if count < 0:
+		raise Exception('String has too many parts')
+	return string.split(delim) + count*['']
+
+
+def warn(msg):
+	print('WARNING: ' + msg, file=stderr)
+
+
+################
+## Filesystem ##
+################
+
+
+DECODERS = {None: open, 'gz': gzip.open}
+EXCLUDE_DUMPS = {'html'}
+MAIN_TYPE = 'request'
+
+
+def is_dump(name):
+	return name not in EXCLUDE_DUMPS and path.isdir(name)
+
+
+def list_dumps():
+	return sorted(filter(is_dump, listdir()), reverse=True)
+
+
+def get_newest_dump():
+	return max(filter(is_dump, listdir()), default=None)
+
+
+def list_dump_entries(dump):
+	events = set()
+	types = set()
+	total = 0
+	for entry_name in listdir(dump):
+		try:
+			event, type, _encoding = fsplit(entry_name, '.', 2)
+			if not event or not type: raise Exception()
+		except Exception:
+			warn('Invalid entry name: ' + entry_name)
+			continue
+		events.add(event)
+		types.add(type)
+		total += 1
+	if total == 0:
+		warn('No entries found')
+	# this should not happen. the condition is just sort
+	# of "checksum". it does not find all inconsistencies
+	# (e.g. one entry is duplicate and another missing)
+	if len(events) * len(types) != total:
+		warn('%i events * %i types != %i entries' % (len(events), len(types), total))
+	return events, types
+
+
+def get_dump_entry_filename(dump, event, type, encoding):
+	if encoding is None:
+		basename = event + '.' + type
+	else:
+		basename = event + '.' + type + '.' + encoding
+	return path.join(dump, basename)
+
+
+def open_dump_entry(dump, event, type):
+	for encoding in DECODERS:
+		filename = get_dump_entry_filename(dump, event, type, encoding)
+		if path.exists(filename):
+			return DECODERS[encoding](filename, 'rt')
+
+
+def get_event_name(dump, event):
+	file = open_dump_entry(dump, event, MAIN_TYPE)
+	if file is None:
+		return '???'
+	name = file.read()
+	file.close()
+	return name
+
+
+def get_view_function(type):
+	try:
+		return import_module('viewers.' + type).view
+	except ImportError:
+		return import_module('viewers.default').view
+
+
+################
+## HTML & CSS ##
+################
 
 
 STYLESHEET = b"""
+	div#header {
+		position: fixed;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 3em;
+		line-height: 3em;
+		background: lightgray;
+		overflow: hidden;
+	}
+	div#header-placeholder {
+		height: 3em;
+	}
+	div#header select {
+		width: 20em;
+		margin-left: 1em;
+	}
+	div#header a {
+		margin-left: 1em;
+	}
+	.current {
+		color: darkgreen;
+	}
 	table.simple-border, table.simple-border td, table.simple-border th {
 		border: solid 1px black;
 		border-collapse: collapse;
@@ -21,207 +137,148 @@ STYLESHEET = b"""
 """
 
 
-DumpDict = namedtuple('DumpDict', ['all', 'by_test', 'by_type'])
+def html_select(name, options, selected, pref, suff):
+	yield '<select name="%s" onchange="location.href = this.value">' % name
+	for value, text in options:
+		if value == selected:
+			yield '<option value="%s%s%s" selected>%s</option>' % (pref, value, suff, escape(text))
+		else:
+			yield '<option value="%s%s%s">%s</option>' % (pref, value, suff, escape(text))
+	yield '</select>'
 
 
-Dump = namedtuple('Dump', ['test', 'date', 'type', 'ce']) # ce .. compilation event
+def html_all(dumps, events, types, dump, event, type, inner_html_generator):
+	yield '<!doctype html><html><head><meta charset="utf8"><title>Dump browser</title>'
+	yield '<link rel="stylesheet" href="../s.css"></head><body>'
 
-def Dump_name(self):
-	if self.ce != 0:
-		return self.test + "." + self.date + "/" + self.type + "." + str(self.ce)
-	else:
-		return self.test + "." + self.date + "/" + self.type
+	yield '<div id="header">'
+	yield from html_select('dump', dumps, dump, '../', '/_.%s.html' % type)
+	yield from html_select('event', events, event, '', '.%s.html' % type)
+	for value, text in types:
+		if value == type:
+			yield '<a href="%s.%s.html" class="current">%s</a>' % (event, value, text)
+		else:
+			yield '<a href="%s.%s.html">%s</a>' % (event, value, text)
+	yield '</div>'
+	
+	yield '<div id="header-placeholder"></div>'
 
-Dump.name = Dump_name
+	yield from inner_html_generator
 
-
-def listdumps():
-	for name in listdir():
-		if not path.isdir(name) or name == "html":
-			continue
-		try:
-			test, date = name.split('.')
-			for filename in listdir(name):
-				if "." in filename:
-					type, ce_s = filename.rsplit(".", 1)
-					ce = int(ce_s)
-				else:
-					type = filename
-					ce = 0
-				yield Dump(test, date, type, ce)
-		except ValueError:
-			# name.split didn't return 2-element array
-			print('Warning: %r is not a valid report directory name. Expected "test.date"' % name)
+	yield '</body></html>'
 
 
-def newestdump():
-	return max(listdumps(), default=None, key=lambda dump: (dump.date, -dump.ce))
+def html_exception(e):
+	yield '<br>... crashed with %r. See console.' % e
 
 
-dump_dict_cache = None
+def html_nonexistent():
+	yield 'No such dump entry found.'
 
 
-def get_dump_dict():
-	global dump_dict_cache
-	if dump_dict_override_cache or dump_dict_cache == None:
-		dump_dict_cache = get_dump_dict_inner()
-	return dump_dict_cache
+def html_notype():
+	yield 'Choose dump type from the navigation bar.'
 
 
-def get_dump_dict_inner():
-	dumps = sorted(listdumps(), key=lambda dump: (dump.date, -dump.ce), reverse=True)
-
-	by_test, by_type = OrderedDict(), OrderedDict()
-	for dump in dumps:
-		# For each triple (test,date,type) there
-		# should be no more than one entry.
-		if dump.ce != 0:
-			# When dumping, we always start at 0,
-			# so we can assume that for each
-			# triple (test,date,type) if there
-			# is any dump (test,date,type,*) then
-			# there is also (test,date,type,0).
-			continue
-
-		if dump.test not in by_test:
-			by_test[dump.test] = OrderedDict()
-		by_date = by_test[dump.test]
-
-		if dump.date not in by_date:
-			by_date[dump.date] = []
-		by_date[dump.date].append(dump)
-
-		if dump.type not in by_type:
-			by_type[dump.type] = []
-		by_type[dump.type].append(dump)
-
-	return DumpDict(dumps, by_test, by_type)
+#####################
+## Viewer dispatch ##
+#####################
 
 
-def html_link(dump, text, existing, current_dump):
-	if dump[:3] == current_dump[:3]: # equal except ce
-		yield '<li><a href="../%s.html" style="color: darkgreen">%s</a></li>' % (dump.name(), text)
-	elif dump in existing:
-		yield '<li><a href="../%s.html">%s</a></li>' % (dump.name(), text)
-	else:
-		yield '<li><a href="../%s.html" style="color: darkred">%s</a></li>' % (dump.name(), text)
-
-
-def html_by_test(by_test, current_dump):
-	for test, by_date in by_test.items():
-		yield '<b>%s</b><ul>' % test
-		for date, dumps in by_date.items():
-			yield from html_link(Dump(test, date, current_dump.type, 0), date, dumps, current_dump)
-		yield '</ul>'
-
-
-def html_by_type(by_type, current_dump):
-	yield '<ul>'
-	for type, dumps in by_type.items():
-		yield from html_link(Dump(current_dump.test, current_dump.date, type, 0), type, dumps, current_dump)
-	yield '</ul>'
-
-
-def html_ce_list(dumps, current_dump):
-	for dump in dumps:
-		if dump == current_dump:
-			yield '<a href="../%s.html" style="color: darkgreen">%s</a> ' % (dump.name(), dump.ce)
-		elif dump[:3] == current_dump[:3]: # equal except ce
-			yield '<a href="../%s.html">%s</a> ' % (dump.name(), dump.ce)
-
-
-def default_view(file):
-	yield '<div style="border: solid 2px black">No viewer for %r found.</div>' % dump.type
-	yield '<pre style="background-color: lightgray">'
-	yield escape(file.read())
-	yield '</pre>'
-
-
-def html_all(dump):
+def catch_errors(function):
 	try:
-		yield '<!doctype html><html><head><meta charset="utf8"><title>%s</title><link rel="stylesheet" href="../s.css"></head><body>' % dump.name()
-
-		dumps = get_dump_dict()
-		yield '<div style="position: absolute; top: 0; bottom: 0; right: 0; width: 16em; overflow: auto"><div style="margin: 1em">'
-		yield from html_by_test(dumps.by_test, dump)
-		yield '<hr>'
-		yield from html_by_type(dumps.by_type, dump)
-		yield '<hr>'
-		yield from html_ce_list(dumps.all, dump)
-		yield '</div></div>'
-
-		yield '<div style="position: absolute; left: 0; top: 0; bottom: 0; right: 16em; overflow: auto"><div style="margin: 1em">'
-		try:
-			with open(dump.name()) as file:
-				class ImportError(Exception): pass
-				try:
-					view = import_module('viewers.' + dump.type).view
-				except ImportError:
-					view = default_view
-				yield from view(file)
-		except FileNotFoundError:
-			yield '<div style="border: solid 2px black">Dump %r not found.</div>' % dump.name()
-		yield '</div></div>'
-
-		yield '</body></html>'
+		yield from function()
 	except Exception as e:
-		yield '<br>... crashed with %r. See console.' % e
 		traceback.print_exc()
+		yield from html_exception(e)
+
+
+def get_inner_html_generator(dump, event, type):
+	if type == '_':
+		return html_notype()
+	if event == '_':
+		return ("TODO aggregation") # TODO
+	file = open_dump_entry(dump, event, type)
+	if file is None:
+		return html_nonexistent()
+	return catch_errors(lambda: get_view_function(type)(file))
+
+
+def neco(dump, event, type):
+	dumps = list_dumps()
+	events, types = list_dump_entries(dump)
+	
+	# replace plain lists with `(value, text)` pairs
+	# where `value` is the internal representation
+	# and `text` is the user-friendly representation
+	dumps = ((dump, dump.replace('.', ' --- ')) for dump in dumps)
+	events = [('_', 'Aggregated results, statistics')] \
+		+ sorted((event, event.upper() + ' --- ' + get_event_name(dump, event)) for event in events)
+	types = sorted((type, type) for type in types)
+	
+	return html_all(dumps, events, types, dump, event, type, get_inner_html_generator(dump, event, type))
+
+
+#################
+## HTTP Server ##
+#################
 
 
 class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
-		if '?' in self.path:
-			file, params_str = self.path.split('?', 1)
-		else:
-			file, params_str = self.path, ''
-		params = dict(param.split('=', 1) for param in params_str.split('&') if '=' in param)
-
-		if file == '/':
-			dump = newestdump()
-			if dump:
-				self.send_response(302)
-				self.send_header('Location', self.absolute(dump.name() + '.html'))
-				self.end_headers()
-			else:
-				self.send_response(200)
-				self.send_header('Content-Type', 'text/plain')
-				self.end_headers()
-				self.wfile.write(b'No available dumps')
+		file, params = fsplit(self.path, '?', 1)
+		
+		special_paths = {
+			'/': self.do_GET_root,
+			'/STOP': self.do_GET_STOP,
+			'/s.css': self.do_GET_css,
+		}
+		
+		if file in special_paths:
+			special_paths[file]()
 			return
-
-		if file == '/STOP':
-			self.send_response(200)
-			self.send_header('Content-Type', 'text/plain')
-			self.end_headers()
-			self.wfile.write(b'Stopping')
-			Thread(target=self.server.shutdown).start()
+		
+		empty, dump, entry = fsplit(file, '/', 2)
+		if empty != '':
+			self.send_error(400, explain='Path must start with "/"')
 			return
-
-		if file == '/s.css':
-			self.send_response(200)
-			self.send_header('Content-Type', 'text/css')
-			self.end_headers()
-			self.wfile.write(STYLESHEET)
+		
+		event, type, html = fsplit(entry, '.', 2)
+		if html != 'html' or not dump or not event or not type:
+			self.send_error(404, explain='Usage: "http://HOST/DUMP/EVENT_HASH.TYPE.html"')
 			return
-
-		mo = PATH_PATTERN.fullmatch(file)
-		if mo:
-			self.send_response(200)
-			self.send_header('Content-Type', 'text/html')
-			self.end_headers()
-			test, date, type, ce_s = mo.group(1, 2, 3, 4)
-			ce = int(ce_s) if ce_s else 0
-			self.wfile.writelines(bytes(line, 'utf-8') for line in html_all(Dump(test, date, type, ce)))
-			return
-
-		self.send_response(400)
-		self.send_header('Content-Type', 'text/plain')
+		
+		self.send_response(200)
+		self.send_header('Content-Type', 'text/html')
 		self.end_headers()
-		self.wfile.write(b'Invalid URL')
-
+		self.wfile.writelines(bytes(line, 'utf-8') for line in neco(dump, event, type))
+	
+	def do_GET_root(self):
+		dump = get_newest_dump()
+		if dump:
+			self.send_response(302)
+			self.send_header('Location', self.absolute(dump + '/_._.html'))
+			self.end_headers()
+		else:
+			self.send_error(204, explain='No available dumps')
+	
+	def do_GET_STOP(self):
+		self.send_error(202, explain='Stopping')
+		Thread(target=self.server.shutdown).start()
+	
+	def do_GET_css(self):
+		self.send_response(200)
+		self.send_header('Content-Type', 'text/css')
+		self.end_headers()
+		self.wfile.write(STYLESHEET)
+	
 	def absolute(self, s):
 		return 'http://' + self.headers['Host'] + '/' + s
+
+
+#####################
+## Producing files ##
+#####################
 
 
 def create_html_dir():
@@ -234,6 +291,7 @@ def create_html_dir():
 		except FileExistsError:
 			i += 1
 			name = 'html.' + str(i)
+
 
 def generate_all():
 	dumps = get_dump_dict().all
@@ -248,7 +306,13 @@ def generate_all():
 			file.writelines(html_all(dump))
 
 
+##########
+## Main ##
+##########
+
+
 if len(argv) == 1:
+	TODO # TODO
 	dump_dict_override_cache = False
 	generate_all()
 elif len(argv) == 2:
