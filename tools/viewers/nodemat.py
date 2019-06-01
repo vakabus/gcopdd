@@ -41,14 +41,14 @@ def html_legend(classes):
 	yield '</ol>'
 
 
-def view(lines_n):
+def view(lines_n, *_):
 	lines = map(str.strip, lines_n) # remove '\n' characters
 	nodeClasses = read_classes(takewhile(nonempty, lines))
 	phaseClasses = read_classes(takewhile(nonempty, lines))
 	pre_phase_matrix = read_depval_matrix(takewhile(nonempty, lines))
 	post_phase_matrix = read_depval_matrix(takewhile(nonempty, lines))
 
-	yield '<table style="font-family: monospace"><tr><td>'
+	yield '<table class="mono"><tr><td>'
 	yield from html_table(nodeClasses, phaseClasses, pre_phase_matrix, find_column_maxima(pre_phase_matrix))
 	yield from html_table(nodeClasses, phaseClasses, post_phase_matrix, find_column_maxima(post_phase_matrix))
 	yield '</td><td style="text-align: left; vertical-align: top">'

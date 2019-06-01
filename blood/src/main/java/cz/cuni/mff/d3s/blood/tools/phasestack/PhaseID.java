@@ -14,4 +14,26 @@ public class PhaseID {
     private PhaseID(int id) {
         this.id = id;
     }
+
+    @Override
+    public String toString() {
+        return Integer.toString(id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PhaseID phaseID = (PhaseID) o;
+        return id == phaseID.id;
+    }
 }

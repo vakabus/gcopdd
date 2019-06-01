@@ -134,6 +134,40 @@ STYLESHEET = b"""
 		border: solid 1px black;
 		border-collapse: collapse;
 	}
+	.here:target::before {
+		content: '< here';
+		position: relative;
+		left: -1em;
+		top: 3em;
+		color: red;
+		font-weight: bold;
+	}
+	.here {
+		position: relative;
+		top: -3em;
+	}
+	.mono {
+		font-family: monospace;
+	}
+	.fromto {
+		display: none;
+	}
+	td:active .fromto, .fromto:hover {
+		display: block;
+		width: 0;
+		height: 0;
+		position: relative;
+		outline: solid 1px black;
+	}
+	.fromto a {
+		display: block;
+		background-color: black;
+		width: 3em;
+		height: 1.5em;
+	}
+	.clickable-cells td {
+		cursor: pointer;
+	}
 """
 
 
@@ -194,6 +228,8 @@ def catch_errors(function):
 
 
 def get_inner_html_generator(dump, event, type):
+	def get_sibling(type):
+		return open_dump_entry(dump, event, type)
 	if type == '_':
 		return html_notype()
 	if event == '_':
@@ -201,7 +237,7 @@ def get_inner_html_generator(dump, event, type):
 	file = open_dump_entry(dump, event, type)
 	if file is None:
 		return html_nonexistent()
-	return catch_errors(lambda: get_view_function(type)(file))
+	return catch_errors(lambda: get_view_function(type)(file, get_sibling, event))
 
 
 def neco(dump, event, type):

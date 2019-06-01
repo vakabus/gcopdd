@@ -19,7 +19,7 @@ def CompilationEvent_parse(line):
 CompilationEvent.parse = CompilationEvent_parse
 
 
-def view(lines_n):
+def view(lines_n, *_):
 	lines = map(str.strip, lines_n) # remove '\n' characters
 	events = [CompilationEvent.parse(line) for line in lines]
 

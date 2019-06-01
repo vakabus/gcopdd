@@ -1,5 +1,5 @@
 from collections import namedtuple
-from itertools import takewhile
+from itertools import takewhile, count
 from viewers.common import *
 
 
@@ -36,26 +36,28 @@ def read_call_tree(lines):
 	return root
 
 
-def html_node(node):
+def html_node(node, counter):
 	yield '<li>'
 	yield from html_class(node.desc)
-	yield from html_subtree(node)
+	yield from html_subtree(node, counter)
 	yield '</li>'
 
 
-def html_subtree(node):
+def html_subtree(node, counter):
 	yield '<ul>'
+	yield '<div id="here%i" class="here"></div>' % next(counter)
 	for childnode in node.children:
-		yield from html_node(childnode)
+		yield from html_node(childnode, counter)
 	yield '</ul>'
+	yield '<div id="here%i" class="here"></div>' % next(counter)
 
 
 def html_class(desc):
 	yield '%s<span style="color: lightgray">, %s</span>' % (desc.simplename, desc.package)
 
 
-def view(lines_n):
+def view(lines_n, *_):
 	lines = map(str.strip, lines_n) # remove '\n' characters
 	call_tree = read_call_tree(lines)
 
-	return html_subtree(call_tree)
+	return html_subtree(call_tree, count())
