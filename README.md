@@ -41,6 +41,9 @@ make build
 
 # generate and browse the report
 tools/dump-browser
+
+# to reset the system for a try with other version
+make clean
 ```
 
 ### Configuration of data collection
@@ -76,3 +79,9 @@ tools/dump-browser fg
 # launch browser to analyze the data
 firefox "http://localhost:8080"
 ```
+
+## Versions of Graal it works on
+
+The whole project should work should work without issues at least since version `vm-1.0.0-rc7` (git tag). It builds fine in RC6, but the JVM won't start. That's probably fixable.
+
+Everything before that is not buildable and it does not work. Java11 was not released at that time but it's used in `blood`.

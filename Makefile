@@ -32,6 +32,7 @@ mx/mx:
 
 graal/compiler/mxbuild/dists/jdk11/graal.jar: graal/.git mx/mx
 	cd graal/compiler; ../../mx/mx build; ../../mx/mx ideinit
+	-cd graal/compiler/mxbuild/dists; ln -s -r . jdk11
 	# if you have multiple JVM versions, this will fail
 	# and give you hints how to fix it
 	
@@ -41,7 +42,7 @@ graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar PLuG/dist/P
 .PHONY: clean
 clean:
 	cd blood; ${GRADLE} clean
-	rm graal.instrumented.jar
+	-rm graal.instrumented.jar
 
 .PHONY: clean-full
 clean-full:
@@ -51,6 +52,6 @@ clean-full:
 	mkdir PLuG
 	mkdir graal
 	mkdir mx
-	rm graal.instrumented.jar
+	-rm graal.instrumented.jar
 	cd blood; ${GRADLE} clean
 
