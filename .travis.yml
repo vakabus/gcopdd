@@ -1,9 +1,8 @@
 language: java
 jdk: openjdk11
-script: make build
+script: >
+  git clone --depth 1 https://github.com/oracle/graal.git
+  make build
 cache:
-  directories:
-    - graal/
-    - mx/
-    - PLuG/
-    - $HOME/.gradle
+  - mx/
+  - PLuG/

@@ -11,22 +11,26 @@ build: graal.instrumented.jar
 blood/build/libs/blood-all.jar: $(shell find blood/src/)
 	cd blood; ${GRADLE} shadowJar
 
-graal/.git:
-	git submodule init graal
-	git submodule update graal
-
-mx/.git:
-	git submodule init mx
-	git submodule update mx
-
-PLuG/.git:
-	git submodule init PLuG
-	git submodule update PLuG
-
-PLuG/dist/PLuG.jar: PLuG/.git
+PLuG/dist/PLuG.jar:
+	rm -rf PLuG/
+	git clone https://github.com/rqu/PLuG.git
 	cd PLuG; ant
 
-graal/compiler/mxbuild/dists/jdk11/graal.jar: mx/.git graal/.git
+graal/.git:
+	@echo "Please clone Graal in the root directory and checkout"
+	@echo "the commit you want to collect data on."
+	@echo ""
+	@echo "Example:"
+	@echo "> git clone https://github.com/graalvm/graal.git"
+	@echo "> cd graal; git checkout befc159f4898e81648f4"
+	@echo ""
+	exit
+
+mx/mx:
+	rm -rf mx/
+	git clone --depth 1 https://github.com/graalvm/mx.git
+
+graal/compiler/mxbuild/dists/jdk11/graal.jar: graal/.git mx/mx
 	cd graal/compiler; ../../mx/mx build; ../../mx/mx ideinit
 	# if you have multiple JVM versions, this will fail
 	# and give you hints how to fix it
@@ -37,28 +41,16 @@ graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar PLuG/dist/P
 .PHONY: clean
 clean:
 	cd blood; ${GRADLE} clean
-	cd graal/compiler; ../../mx/mx clean
-	cd PLuG; ant clean
 	rm graal.instrumented.jar
-
-.PHONY: clean-graal
-clean-graal:
-	rm -rf graal/
-
-.PHONY: clean-mx
-clean-mx:
-	rm -rf mx/
-
-.PHONY: clean-plug
-clean-plug:
-	rm -rf PLuG/
 
 .PHONY: clean-full
-clean-full: clean-graal clean-mx clean-plug
+clean-full:
+	rm -rf PLuG/
+	rm -rf graal/
+	rm -rf mx/
+	mkdir PLuG
+	mkdir graal
+	mkdir mx
 	rm graal.instrumented.jar
 	cd blood; ${GRADLE} clean
-
-.PHONY: update-deps
-update-deps: clean
-	git submodule foreach git pull origin master
 
