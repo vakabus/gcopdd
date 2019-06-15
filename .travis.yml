@@ -1,6 +1,6 @@
 language: java
 jdk: openjdk11
-script: >
+script: |
   git clone --depth=1 https://github.com/oracle/graal.git
   make build
   ./vm tests/Fibbonaci.java
