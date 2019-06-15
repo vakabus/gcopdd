@@ -8,10 +8,10 @@
 
 * `graal`, `mx` and `PLuG` subdirectories are dependent git repositories. They are cloned during build. Documentation of basic Graal internals can be found [here](docs/graal_internals.md).
 * `blood` is our code specifying instrumentation. Code from here is compiled and injected into Graal compiler. It's idea is documented [here](docs/blood.md).
-* `tests` contains simple test applications that we can test the compiler on
+* `tests` contains simple test applications that we can test the compiler on and that are quick to execute
 * `docs` is for documentation
 * `tools` contains scripts that can be used in conjunction with the instrumented compiler for convenience
-* `dumps` (not in repo, but generated) contains collected data
+* `dumps` (not in repo, but generated) contains collected data (see [this](docs/blood.md) for format)
 
 ## Dependencies
 

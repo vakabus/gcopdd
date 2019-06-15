@@ -1,6 +1,7 @@
 package cz.cuni.mff.d3s.blood.utils.matrix;
 
 import java.util.HashMap;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -50,6 +51,10 @@ public class Matrix<RowKeyType, ColKeyType, ValueType extends MatrixValue<ValueT
                         .collect(Collectors.joining(" "))
                 )
                 .collect(Collectors.joining("\n"));
+    }
+
+    public Set<RowKeyType> rowKeys() {
+        return rows.keySet();
     }
 
     public class UnmodifiableRow {

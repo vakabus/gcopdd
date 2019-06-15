@@ -1,6 +1,7 @@
 package cz.cuni.mff.d3s.blood.tools.nodemat;
 
 import cz.cuni.mff.d3s.blood.report.TextDump;
+import cz.cuni.mff.d3s.blood.tools.phasestack.PhaseID;
 import cz.cuni.mff.d3s.blood.utils.matrix.Matrix;
 import org.graalvm.compiler.graph.Node;
 import org.graalvm.compiler.nodes.StructuredGraph;
@@ -14,11 +15,11 @@ public class NodeMatCollector implements TextDump {
     // the default of 16 doesn't fit even the most trivial programs
     private static final int HASHMAP_INIT_CAPACITY = 64;
 
-    private final Matrix<Class, Class, NodeTrackerValue> preMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
-    private final Matrix<Class, Class, NodeTrackerValue> postMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+    private final Matrix<PhaseID, Class, NodeTrackerValue> preMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
+    private final Matrix<PhaseID, Class, NodeTrackerValue> postMatrix = new Matrix<>(HASHMAP_INIT_CAPACITY, NodeTrackerValue.ZERO);
 
     private final LinkedHashSet<Class> nodeClasses = new LinkedHashSet<>();
-    private final LinkedHashSet<Class> phaseClasses = new LinkedHashSet<>();
+    private final LinkedHashSet<PhaseID> phases = new LinkedHashSet<>();
 
 
     /**
@@ -30,7 +31,7 @@ public class NodeMatCollector implements TextDump {
      * @param sourceClass Class of the optimization phase running
      */
     public void prePhase(StructuredGraph graph, Class<?> sourceClass) {
-        update(graph, sourceClass, preMatrix);
+        update(graph, preMatrix);
     }
 
     /**
@@ -43,16 +44,16 @@ public class NodeMatCollector implements TextDump {
      * @param sourceClass Class of the running optimization phase
      */
     public void postPhase(StructuredGraph graph, Class<?> sourceClass) {
-        update(graph, sourceClass, postMatrix);
+        update(graph, postMatrix);
     }
 
-    private void update(StructuredGraph graph, Class phaseClass, Matrix<Class, Class, NodeTrackerValue> matrix) {
-        phaseClasses.add(phaseClass);
+    private void update(StructuredGraph graph, Matrix<PhaseID, Class, NodeTrackerValue> matrix) {
+        phases.add(PhaseID.getCurrent());
 
-        updateRow(graph, matrix.getOrCreateRow(phaseClass));
+        updateRow(graph, matrix.getOrCreateRow(PhaseID.getCurrent()));
     }
 
-    private void updateRow(StructuredGraph graph, Matrix<Class, Class, NodeTrackerValue>.Row row) {
+    private void updateRow(StructuredGraph graph, Matrix<PhaseID, Class, NodeTrackerValue>.Row row) {
         HashMap<Class, Long> nodeCount = new HashMap<>();
         for (Node n : graph.getNodes()) {
             Long count = nodeCount.getOrDefault(n.getClass(), 0l);
@@ -85,12 +86,13 @@ public class NodeMatCollector implements TextDump {
                 .map(Class::getName)
                 .collect(Collectors.joining("\n"));
 
-        String phaseClassesStr = phaseClasses.stream()
-                .map(Class::getName)
+        // doesn't matter, if its's postMatrix or preMatrix, they have the same keys
+        String phaseClassesStr = phases.stream()
+                .map(PhaseID::toString)
                 .collect(Collectors.joining("\n"));
 
-        String prePhaseStr = preMatrix.toString(phaseClasses::stream, nodeClasses::stream);
-        String postPhaseStr = postMatrix.toString(phaseClasses::stream, nodeClasses::stream);
+        String prePhaseStr = preMatrix.toString(phases::stream, nodeClasses::stream);
+        String postPhaseStr = postMatrix.toString(phases::stream, nodeClasses::stream);
 
         return nodeClassesStr + "\n\n" + phaseClassesStr + "\n\n" + prePhaseStr + "\n\n" + postPhaseStr;
     }

@@ -9,9 +9,9 @@ graal.instrumented.jar
 *.class
 graal_dumps/
 dumps/
-graal/*
-mx/*
-PLuG/*
+graal/
+mx/
+PLuG/
 scratch/
 __pycache__
 
