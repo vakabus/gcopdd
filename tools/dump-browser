@@ -1,63 +1,573 @@
-#!/bin/bash -e
+#!/usr/bin/env python3
 
-cd "$(git rev-parse --show-toplevel)/dumps"
+from html import escape
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from importlib import import_module
+from os import listdir, path, mkdir, kill, fork, chdir, devnull, remove
+from shutil import rmtree
+import sys
+import signal
+import atexit
+import gzip
+import traceback
+from importlib.machinery import SourceFileLoader
+from types import ModuleType
+from itertools import count, product
 
-dump_browser_py='python3 ../tools/dump_browser.py'
 
-case $# in
-	(1)
-		action="cmd_$1"
-		port="8000"
-		;;
-	(2)
-		action="cmd_$1"
-		port="$2"
-		;;
-	(*)
-		action="usage"
-		port="0"
-		;;
-esac
+#####################
+## Utility methods ##
+#####################
 
-case "$port" in
-	(*[!0-9]*|"")
-		echo "Invalid port number" >&2
-		exit 1
-		;;
-esac
 
-usage() {
-	echo "Usage:" >&2
-	echo "    $0 fg [PORT]" >&2
-	echo "      Start server in foreground (terminate by ^C)" >&2
-	echo "    $0 start [PORT]" >&2
-	echo "      Start server in background (terminate by stop command)" >&2
-	echo "    $0 stop [PORT]" >&2
-	echo "      Stop running server (PORT must be given unless it is 8000)" >&2
-	echo "    $0 save" >&2
-	echo "      Don't start a server, save HTML files to the dumps directory" >&2
-	echo "  Default for PORT is 8000." >&2
-	exit 1
-}
+def fsplit(string, delim, count):
+	count -= string.count(delim)
+	if count < 0:
+		raise Exception('String has too many parts')
+	return string.split(delim) + count*['']
 
-cmd_fg() {
-	echo "Starting server at http://localhost:$port/." >&2
-	$dump_browser_py "$port"
-}
 
-cmd_start() {
-	echo "Starting server at http://localhost:$port/." >&2
-	nohup $dump_browser_py "$port" > /dev/null 2> /dev/null &
-}
+def warn(msg):
+	print('WARNING: ' + msg, file=sys.stderr)
 
-cmd_stop() {
-	echo "Stopping server on port $port." >&2
-	wget -o /dev/null -O /dev/null "http://localhost:$port/STOP"
-}
 
-cmd_save() {
-	echo "Saving..." >&2
-	$dump_browser_py
-}
+def readfile(name):
+	with open(name) as file:
+		return file.read()
 
-"$action"
+def writefile(name, data):
+	with open(name, 'w') as file:
+		file.write(data)
+
+
+###################
+## Configuration ##
+###################
+
+
+DEFAULT_CONFIG = """\
+# GENERAL
+# dump-browser configuration
+
+# this argument will be used if no
+# argument is given on command line
+default_command = 'usage'
+
+
+# HTTP
+# this address and port will be bound when
+# executed with `start` or `fg`
+
+# address to be assigned to the socket
+# simple examples:
+# - 'localhost' to listen to local connections
+# - '' to listen on all interfaces
+http_address = 'localhost'
+
+# port to be assigned to the socket
+http_port = 8000
+
+
+# FILES
+# all of the following paths are relative to this
+# configuration file and the dump-browser binary
+
+# where to look for dumps
+dumps_dir = '../dumps'
+
+# where to output files when executed with `save`
+output_dir = '../dumps/html'
+
+# if True, existing output dir is replaced by `save`
+# if False, new dir with numeric suffix is created
+clobber_output_dir = True
+
+# where to write PID when executed with `start`
+# and to read it when executed with `stop`
+pidfile = 'dump-browser.pid'
+"""
+
+CONFIG_FILE = 'dump-browser.conf'
+
+def load_config():
+	# the following means basically
+	# import 'dump-browser.conf' as config
+	# except that would not be valid Python
+
+	# initialize a new module with the name 'config'
+	config = ModuleType('config')
+	# load the module's source from file 'dump-browser.conf'
+	SourceFileLoader('config', CONFIG_FILE).exec_module(config)
+
+	return config
+
+def verbose_create_missing_config():
+	print('Configuration file %r was not found.' % CONFIG_FILE)
+	print('Creating a default one...')
+	writefile(CONFIG_FILE, DEFAULT_CONFIG)
+	print('Done. You can customize it (optional) and re-run this script.')
+
+
+################
+## Filesystem ##
+################
+
+
+DECODERS = {None: open, 'gz': gzip.open}
+MAIN_TYPE = 'request'
+
+
+def dump_dir(name):
+	return path.join(config.dumps_dir, name)
+
+
+def is_dump(name):
+	return '.' in name and path.isdir(dump_dir(name))
+
+
+def list_dumps():
+	return sorted(filter(is_dump, listdir(config.dumps_dir)), reverse=True)
+
+
+def get_newest_dump():
+	return max(filter(is_dump, listdir(config.dumps_dir)), default=None)
+
+
+def list_dump_entries(dump):
+	events = set()
+	types = set()
+	total = 0
+	for entry_name in listdir(dump_dir(dump)):
+		try:
+			event, type, _encoding = fsplit(entry_name, '.', 2)
+			if not event or not type: raise Exception()
+		except Exception:
+			warn('Invalid entry name: ' + entry_name)
+			continue
+		events.add(event)
+		types.add(type)
+		total += 1
+	if total == 0:
+		warn('No entries found')
+	# this should not happen. the condition is just sort
+	# of "checksum". it does not find all inconsistencies
+	# (e.g. one entry is duplicate and another missing)
+	if len(events) * len(types) != total:
+		warn('%i events * %i types != %i entries' % (len(events), len(types), total))
+	return events, types
+
+
+def get_dump_entry_filename(dump, event, type, encoding):
+	if encoding is None:
+		basename = event + '.' + type
+	else:
+		basename = event + '.' + type + '.' + encoding
+	return path.join(config.dumps_dir, dump, basename)
+
+
+def open_dump_entry(dump, event, type):
+	for encoding in DECODERS:
+		filename = get_dump_entry_filename(dump, event, type, encoding)
+		if path.exists(filename):
+			return DECODERS[encoding](filename, 'rt')
+
+
+def get_event_name(dump, event):
+	file = open_dump_entry(dump, event, MAIN_TYPE)
+	if file is None:
+		return '???'
+	name = file.read()
+	file.close()
+	return name
+
+
+def get_view_function(type):
+	try:
+		return import_module('viewers.' + type).view
+	except ImportError:
+		return import_module('viewers.default').view
+
+
+################
+## HTML & CSS ##
+################
+
+
+STYLESHEET = b"""
+	div#header {
+		position: fixed;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 3em;
+		line-height: 3em;
+		background: lightgray;
+		overflow: hidden;
+	}
+	div#header-placeholder {
+		height: 3em;
+	}
+	div#header select {
+		width: 20em;
+		margin-left: 1em;
+	}
+	div#header a {
+		margin-left: 1em;
+	}
+	.current {
+		color: darkgreen;
+	}
+	table.simple-border, table.simple-border td, table.simple-border th {
+		border: solid 1px black;
+		border-collapse: collapse;
+	}
+	.here:target::before {
+		content: '< here';
+		position: relative;
+		left: -1em;
+		top: 3em;
+		color: red;
+		font-weight: bold;
+	}
+	.here {
+		position: relative;
+		top: -3em;
+	}
+	.mono {
+		font-family: monospace;
+	}
+	.fromto {
+		display: none;
+	}
+	td:active .fromto, .fromto:hover {
+		display: block;
+		width: 0;
+		height: 0;
+		position: relative;
+		outline: solid 1px black;
+	}
+	.fromto a {
+		display: block;
+		background-color: black;
+		width: 3em;
+		height: 1.5em;
+	}
+	.clickable-cells td {
+		cursor: pointer;
+	}
+"""
+
+
+def html_select(name, options, selected, pref, suff):
+	yield '<select name="%s" onchange="location.href = this.value">' % name
+	for value, text in options:
+		if value == selected:
+			yield '<option value="%s%s%s" selected>%s</option>' % (pref, value, suff, escape(text))
+		else:
+			yield '<option value="%s%s%s">%s</option>' % (pref, value, suff, escape(text))
+	yield '</select>'
+
+
+def html_all(dumps, events, types, dump, event, type, inner_html_generator):
+	yield '<!doctype html><html><head><meta charset="utf-8"><title>Dump browser</title>'
+	yield '<link rel="stylesheet" href="../s.css"></head><body>'
+
+	yield '<div id="header">'
+	yield from html_select('dump', dumps, dump, '../', '/_.%s.html' % type)
+	yield from html_select('event', events, event, '', '.%s.html' % type)
+	for value, text in types:
+		if value == type:
+			yield '<a href="%s.%s.html" class="current">%s</a>' % (event, value, text)
+		else:
+			yield '<a href="%s.%s.html">%s</a>' % (event, value, text)
+	yield '</div>'
+
+	yield '<div id="header-placeholder"></div>'
+
+	yield from inner_html_generator
+
+	yield '</body></html>'
+
+
+def html_exception(e):
+	yield '<br>... crashed with %r. See console.' % e
+
+
+def html_nonexistent():
+	yield 'No such dump entry found.'
+
+
+def html_notype():
+	yield 'Choose dump type from the navigation bar.'
+
+
+#####################
+## Viewer dispatch ##
+#####################
+
+
+def catch_errors(function):
+	try:
+		yield from function()
+	except Exception as e:
+		traceback.print_exc()
+		yield from html_exception(e)
+
+
+def get_inner_html_generator(dump, event, type):
+	def get_sibling(type):
+		return open_dump_entry(dump, event, type)
+	if type == '_':
+		return html_notype()
+	if event == '_':
+		return ("TODO aggregation") # TODO
+	file = open_dump_entry(dump, event, type)
+	if file is None:
+		return html_nonexistent()
+	return catch_errors(lambda: get_view_function(type)(file, get_sibling, event))
+
+
+# these three functions replace plain
+# lists with lists of `(value, text)` pairs
+# where `value` is the internal representation
+# and `text` is the user-friendly representation
+
+def dumps_to_pairs(dumps):
+	return ((dump, dump.replace('.', ' --- ')) for dump in dumps)
+
+def events_to_pairs(dump, events):
+	return [('_', 'Aggregated results, statistics')] \
+		+ sorted((event, event.upper() + ' --- ' + get_event_name(dump, event)) for event in events)
+
+def types_to_pairs(types):
+	return sorted((type, type) for type in types)
+
+
+def one_dump_item(dump, event, type):
+	dumps = list_dumps()
+	events, types = list_dump_entries(dump)
+
+	mdumps = dumps_to_pairs(dumps)
+	mevents = events_to_pairs(dump, events)
+	mtypes = types_to_pairs(types)
+
+	return html_all(mdumps, mevents, mtypes, dump, event, type, get_inner_html_generator(dump, event, type))
+
+
+# returns iterator of tuples(DUMP, iterator of tuples(EVENT, TYPE, HTML))
+# where HTML is actually another iterator - sorry for this
+def all_dump_items():
+	dumps = list_dumps()
+	mdumps = dumps_to_pairs(dumps)
+	for dump in dumps:
+		events, types = list_dump_entries(dump)
+
+		mevents = events_to_pairs(dump, events)
+		mtypes = types_to_pairs(types)
+
+		yield dump, ((event, type,
+			html_all(mdumps, mevents, mtypes, dump, event, type, get_inner_html_generator(dump, event, type))
+		) for event, type in product(events, types))
+
+
+#################
+## HTTP Server ##
+#################
+
+
+class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
+	def do_GET(self):
+		file, params = fsplit(self.path, '?', 1)
+
+		special_paths = {
+			'/': self.do_GET_root,
+			'/s.css': self.do_GET_css,
+		}
+
+		if file in special_paths:
+			special_paths[file]()
+			return
+
+		empty, dump, entry = fsplit(file, '/', 2)
+		if empty != '':
+			self.send_error(400, explain='Path must start with "/"')
+			return
+
+		event, type, html = fsplit(entry, '.', 2)
+		if html != 'html' or not dump or not event or not type:
+			self.send_error(404, explain='Usage: "%s"'%self.absolute('DUMP/EVENT_HASH.TYPE.html'))
+			return
+
+		self.send_response(200)
+		self.send_header('Content-Type', 'text/html')
+		self.end_headers()
+		self.wfile.writelines(bytes(line, 'utf-8') for line in one_dump_item(dump, event, type))
+
+	def do_GET_root(self):
+		dump = get_newest_dump()
+		if dump:
+			self.send_response(302)
+			self.send_header('Location', self.absolute(dump + '/_._.html'))
+			self.end_headers()
+		else:
+			self.send_error(204, explain='No available dumps')
+
+	def do_GET_css(self):
+		self.send_response(200)
+		self.send_header('Content-Type', 'text/css')
+		self.end_headers()
+		self.wfile.write(STYLESHEET)
+
+	def absolute(self, s):
+		return 'http://' + self.headers['Host'] + '/' + s
+
+
+def listen(should_daemonize):
+	address = config.http_address
+	port = config.http_port
+	print('Starting server at http://%s:%i.' % (address or '*', port))
+	if should_daemonize:
+		child_pid = fork()
+		if child_pid != 0: # this is parent
+			writefile(config.pidfile, str(child_pid))
+			return
+		else: # this is child
+			signal.signal(signal.SIGHUP, signal.SIG_IGN)
+			signal.signal(signal.SIGTERM, lambda _s, _f: (remove(config.pidfile), exit()))
+			sys.stdin = sys.stdout = sys.stderr = open(devnull, 'w')
+	HTTPServer((address, port), DumpBrowserHTTPRequestHandler).serve_forever()
+
+
+#####################
+## Producing files ##
+#####################
+
+
+def create_html_dir():
+	name = config.output_dir
+	if config.clobber_output_dir:
+		try:
+			mkdir(name)
+		except FileExistsError:
+			rmtree(name)
+			mkdir(name)
+		return name
+	for i in count(1):
+		try:
+			mkdir(name)
+			return name
+		except FileExistsError:
+			name = config.output_dir + '.' + str(i)
+
+
+def save():
+	total = 0
+	dirname = create_html_dir()
+	for dump, items in all_dump_items():
+		subdirname = path.join(dirname, dump)
+		mkdir(subdir)
+		for event, type, html in items:
+			filename = path.join(subdirname, event + '.' + type + '.html')
+			with open(filename, 'w') as file:
+				file.writelines(html)
+				total += file.tell()
+	return total
+
+
+def drysave():
+	return sum(len(bytes(line, 'utf-8')) for _, items in all_dump_items() for _, _, html in items for line in html)
+
+
+def pretty_space(space):
+	if space > (1<<30):
+		return str(round(space / (1<<30))) + 'GiB'
+	elif space > (1<<20):
+		return str(round(space / (1<<20))) + 'MiB'
+	elif space > (1<<10):
+		return str(round(space / (1<<10))) + 'kiB'
+	else:
+		return str(space) + 'B'
+
+
+##########
+## Main ##
+##########
+
+
+def cmd_fg():
+	listen(should_daemonize=False)
+
+def cmd_start():
+	listen(should_daemonize=True)
+
+def cmd_stop():
+	pid = int(readfile(config.pidfile))
+	print('Terminating process id %i.' % pid)
+	kill(pid, signal.SIGTERM)
+
+def cmd_save():
+	print('Produced %s of HTML.' % pretty_space(save()))
+
+def cmd_drysave():
+	print('Would produce %s of HTML.' % pretty_space(drysave()))
+
+def cmd_usage():
+	usage()
+
+
+def usage():
+	name = sys.argv[0] if sys.argv else 'dump-browser'
+	print('Usage:')
+	for command, (_, desc) in COMMANDS:
+		print('    %s %s' % (name, command))
+		print('        %s' % desc)
+		print()
+	print('With current configuration, the server will')
+	print('be accessible at http://%s:%i' % (config.http_address or '*', config.http_port))
+
+
+COMMANDS = [
+	('fg', (cmd_fg, 'Start server in foreground (terminate by ^C)')),
+	('start', (cmd_start, 'Start server in background (terminate by stop command)')),
+	('stop', (cmd_stop, 'Stop server running in background')),
+	('save', (cmd_save, 'Do not start a server, save HTML files to disk')),
+	('drysave', (cmd_drysave, 'Compute space HTML files would occupy, if they were saved')),
+	('usage', (cmd_usage, 'Display this help')),
+]
+
+
+def main():
+	# move to the script's directory to make
+	# relative paths in conf work as specified
+	chdir(sys.path[0])
+
+	# load conf file or create one and give
+	# the user chance to edit it externally
+	try:
+		global config
+		config = load_config()
+	except FileNotFoundError:
+		verbose_create_missing_config()
+		exit(1)
+
+	# parse commandline argument/command (if any)
+	if len(sys.argv) < 2:
+		command = config.default_command
+	elif len(sys.argv) == 2:
+		_, command = sys.argv
+	else:
+		print('Too many arguments.')
+		usage()
+		exit(1)
+
+	# execute the command
+	try:
+		fn, _ = dict(COMMANDS)[command]
+		fn()
+	except KeyError:
+		print('Invalid command-line argument.')
+		usage()
+		exit(1)
+
+
+main()

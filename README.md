@@ -72,12 +72,6 @@ make build
 # collect data into a dumps/ directory by running it on some program
 # command vm behaves just as a java command
 ./vm tests/Fibbonaci.java
-
-# start dump browser in the foreground
-tools/dump-browser fg
-
-# launch browser to analyze the data
-firefox "http://localhost:8080"
 ```
 
 ## Versions of Graal it works on
