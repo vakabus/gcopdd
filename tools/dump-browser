@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+# TODO:
+# - thorough testing
+# - remembering patterns
+# - caching
+# - documentation
+
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import import_module
@@ -13,6 +19,10 @@ import traceback
 from importlib.machinery import SourceFileLoader
 from types import ModuleType
 from itertools import count, product
+from functools import lru_cache, partial
+from abc import ABC, abstractmethod
+from re import compile as Regex
+from collections import namedtuple
 
 
 #####################
@@ -40,12 +50,71 @@ def writefile(name, data):
 		file.write(data)
 
 
+class Params(dict):
+	def __init__(self, string):
+		self.cat = ''
+		if not string:
+			self.string = ''
+			self.list = []
+			return
+		self.string = '?' + string
+		self.list = string.split('&')
+		for param in self.list:
+			if not param:
+				continue
+			if '=' in param:
+				key, value = param.split('=', 1)
+				self[key] = value
+			else:
+				self[param] = True
+
+	def __str__(self):
+		return self.string
+
+	def str_with(self, key, value):
+		kv = key + '=' + value
+		if key in self:
+			# the parameter has an old value that should be replaced
+			result = '?'
+			for param in self.list:
+				if param == key or param.startswith(key + '='):
+					result += kv + '&'
+				else:
+					result += param + '&'
+			return result[:-1] # omit the last '&'
+		elif self:
+			# the parameter has no old value, but there are other
+			# parameters - it should be added to the end
+			return self.string + '&' + kv
+		else:
+			# there are no parameters - this will be the only parameter
+			return '?' + kv
+
+	def __radd__(self, first):
+		if isinstance(first, str):
+			return first + self.string
+		else:
+			raise TypeError('Can only add URL parameters to string')
+
+	def next_cat(self):
+		if self.cat:
+			self.cat_id += 1
+		else:
+			self.cat_id = 0
+		self.cat = 'cat' + str(self.cat_id)
+		return self
+
+
+# for functions that take no parameters
+cache = lru_cache(maxsize=1)
+
+
 ###################
 ## Configuration ##
 ###################
 
 
-DEFAULT_CONFIG = """\
+DEFAULT_CONFIG = '''\
 # GENERAL
 # dump-browser configuration
 
@@ -75,17 +144,10 @@ http_port = 8000
 # where to look for dumps
 dumps_dir = '../dumps'
 
-# where to output files when executed with `save`
-output_dir = '../dumps/html'
-
-# if True, existing output dir is replaced by `save`
-# if False, new dir with numeric suffix is created
-clobber_output_dir = True
-
 # where to write PID when executed with `start`
 # and to read it when executed with `stop`
 pidfile = 'dump-browser.pid'
-"""
+'''
 
 CONFIG_FILE = 'dump-browser.conf'
 
@@ -114,7 +176,7 @@ def verbose_create_missing_config():
 
 
 DECODERS = {None: open, 'gz': gzip.open}
-MAIN_TYPE = 'request'
+EVENT_NAME_TYPE = 'request'
 
 
 def dump_dir(name):
@@ -125,14 +187,20 @@ def is_dump(name):
 	return '.' in name and path.isdir(dump_dir(name))
 
 
+@cache
 def list_dumps():
-	return sorted(filter(is_dump, listdir(config.dumps_dir)), reverse=True)
+	try:
+		return sorted(filter(is_dump, listdir(config.dumps_dir)), reverse=True)
+	except FileNotFoundError:
+		return []
 
 
+@cache
 def get_newest_dump():
 	return max(filter(is_dump, listdir(config.dumps_dir)), default=None)
 
 
+@lru_cache()
 def list_dump_entries(dump):
 	events = set()
 	types = set()
@@ -154,7 +222,8 @@ def list_dump_entries(dump):
 	# (e.g. one entry is duplicate and another missing)
 	if len(events) * len(types) != total:
 		warn('%i events * %i types != %i entries' % (len(events), len(types), total))
-	return events, types
+	# add names to events, convert sets to sorted lists
+	return sorted((event, get_event_name(dump, event)) for event in events), sorted(types)
 
 
 def get_dump_entry_filename(dump, event, type, encoding):
@@ -173,7 +242,7 @@ def open_dump_entry(dump, event, type):
 
 
 def get_event_name(dump, event):
-	file = open_dump_entry(dump, event, MAIN_TYPE)
+	file = open_dump_entry(dump, event, EVENT_NAME_TYPE)
 	if file is None:
 		return '???'
 	name = file.read()
@@ -181,11 +250,11 @@ def get_event_name(dump, event):
 	return name
 
 
-def get_view_function(type):
+def get_viewer(type):
 	try:
-		return import_module('viewers.' + type).view
+		return import_module('viewers.' + type)
 	except ImportError:
-		return import_module('viewers.default').view
+		return import_module('viewers.default')
 
 
 ################
@@ -193,7 +262,7 @@ def get_view_function(type):
 ################
 
 
-STYLESHEET = b"""
+STYLESHEET = b'''
 	div#header {
 		position: fixed;
 		left: 0;
@@ -203,6 +272,7 @@ STYLESHEET = b"""
 		line-height: 3em;
 		background: lightgray;
 		overflow: hidden;
+		z-index: 42;
 	}
 	div#header-placeholder {
 		height: 3em;
@@ -217,69 +287,72 @@ STYLESHEET = b"""
 	.current {
 		color: darkgreen;
 	}
-	table.simple-border, table.simple-border td, table.simple-border th {
+	table, td, th {
 		border: solid 1px black;
 		border-collapse: collapse;
 	}
-	.here:target::before {
-		content: '< here';
-		position: relative;
-		left: -1em;
-		top: 3em;
-		color: red;
-		font-weight: bold;
+	.button {
+		appearance: button;
+		-moz-appearance: button;
+		-webkit-appearance: button;
+		color: unset;
+		text-decoration: unset;
+		padding: 0 0.25em;
 	}
-	.here {
-		position: relative;
-		top: -3em;
-	}
-	.mono {
-		font-family: monospace;
-	}
-	.fromto {
-		display: none;
-	}
-	td:active .fromto, .fromto:hover {
-		display: block;
-		width: 0;
-		height: 0;
-		position: relative;
-		outline: solid 1px black;
-	}
-	.fromto a {
-		display: block;
-		background-color: black;
-		width: 3em;
-		height: 1.5em;
-	}
-	.clickable-cells td {
-		cursor: pointer;
-	}
-"""
+''' + import_module('viewers.common').STYLESHEET
 
 
 def html_select(name, options, selected, pref, suff):
-	yield '<select name="%s" onchange="location.href = this.value">' % name
+	js_onchange = (
+		"var v = this.value;"
+		"this.value = '%s';"
+		"location.href = '%s' + (v || '@'+prompt('Enter pattern...', '')) + '%s';"
+		% (selected, escape(pref), escape(suff))
+	)
+	yield '<select name="%s" onchange="%s">' % (name, js_onchange)
+	selected_found = False
 	for value, text in options:
+		attr = ''
 		if value == selected:
-			yield '<option value="%s%s%s" selected>%s</option>' % (pref, value, suff, escape(text))
-		else:
-			yield '<option value="%s%s%s">%s</option>' % (pref, value, suff, escape(text))
+			attr += ' selected'
+			selected_found = True
+		if value == '_':
+			attr += ' disabled'
+		yield '<option value="%s"%s>%s</option>' % (value, attr, escape(text))
+	if not selected_found:
+		# if for some reason the selected option is not in the list
+		# (for example when user navigates to nonexistent entry by entering bad URL),
+		# then add an invisible blank option
+		# (this will look the same (or at least similar) to setting value to a non-option in js)
+		yield '<option selected disabled style="display: none"></option>'
 	yield '</select>'
 
 
-def html_all(dumps, events, types, dump, event, type, inner_html_generator):
+def html_table(it):
+	yield '<table>'
+	for row in it:
+		yield '<tr>'
+		for cell in row:
+			yield '<td style="vertical-align: top">'
+			yield from cell
+			yield '</td>'
+		yield '</tr>'
+	yield '</table>'
+
+
+def html_all(dumps, events, types, dump, event, type, params, inner_html_generator):
 	yield '<!doctype html><html><head><meta charset="utf-8"><title>Dump browser</title>'
-	yield '<link rel="stylesheet" href="../s.css"></head><body>'
+	yield '<link rel="stylesheet" href="/s.css"></head><body>'
 
 	yield '<div id="header">'
-	yield from html_select('dump', dumps, dump, '../', '/_.%s.html' % type)
-	yield from html_select('event', events, event, '', '.%s.html' % type)
+	yield '<a href="/refresh" class="button" title="Refresh">\u27f3</a>' # U+27F3 "Clockwise Gapped Circle Arrow"
+	yield from html_select('dump', dumps, dump, '../../', '/_/' + type + params)
+	yield from html_select('event', events, event, '../', '/' + type + params)
 	for value, text in types:
 		if value == type:
-			yield '<a href="%s.%s.html" class="current">%s</a>' % (event, value, text)
+			yield '<a href="%s%s" class="current">%s</a>' % (value, params, text)
 		else:
-			yield '<a href="%s.%s.html">%s</a>' % (event, value, text)
+			yield '<a href="%s%s">%s</a>' % (value, params, text)
 	yield '</div>'
 
 	yield '<div id="header-placeholder"></div>'
@@ -293,17 +366,231 @@ def html_exception(e):
 	yield '<br>... crashed with %r. See console.' % e
 
 
-def html_nonexistent():
+def html_nosuchdump():
+	yield 'No such dump found.'
+
+def html_nosuchentry():
 	yield 'No such dump entry found.'
 
+def html_noentrysel():
+	yield 'Choose dump entry type and compilation event from the navigation bar.'
 
-def html_notype():
-	yield 'Choose dump type from the navigation bar.'
+def html_notypesel():
+	yield 'Choose dump entry type from the navigation bar.'
+
+def html_noeventsel():
+	yield 'Choose compilation event from the navigation bar.'
+
+
+def html_event_count(events):
+	yield 'Events: <b>%i</b>' % len(events)
+
+
+######################
+## Pattern matching ##
+######################
+
+
+# any one of "!&()*+,|~" (note that there's no negation - that would be [^...])
+# or any nonempty sequence of letters, digits, "-.:_"
+# or any other character.
+TOKEN_PATTERN = Regex('[!&()*+,|~]|([-.0-9:A-Z_a-z]+)|(.)')
+END_OF_PATTERN = '/'
+
+class PatternException(Exception):
+	pass
+
+
+def scan_pattern(string):
+	try:
+		string.encode('ascii') # ... discard the result
+	except UnicodeEncodeError:
+		raise PatternException('Only ASCII supported') # unicode case mapping is a mess
+	for match_object in TOKEN_PATTERN.finditer(string.lower()):
+		lexeme, literal_value, invalid = match_object.group(0, 1, 2)
+		if invalid is not None:
+			raise PatternException('Invalid character: %r' % invalid)
+		yield (lexeme, literal_value)
+
+
+def parse_pattern(tokens):
+	# initialization
+	curr, curr_val = next(tokens)
+	# after all these `def`s and `class`es, the body continues
+	def advance():
+		nonlocal curr, curr_val
+		curr, curr_val = next(tokens, (END_OF_PATTERN, None))
+	def accept(accepted):
+		if curr == accepted:
+			advance()
+			return True
+		return False
+	def expect(expected):
+		if not accept(expected):
+			raise PatternException('Unexpected %r' % curr)
+	def expect_lit():
+		if curr_val is None:
+			raise PatternException('Unexpected %r' % curr)
+		result = curr_val
+		advance()
+		return result
+	# S -> OPTION*
+	def parse_s():
+		result = [parse_cat()]
+		while accept(','):
+			result.append(parse_cat())
+		expect(END_OF_PATTERN)
+		return result
+	# CAT -> '*' | DISJ
+	def parse_cat():
+		if accept('*'):
+			return None
+		else:
+			return parse_disj()
+	# DISJ -> CONJ (('|' | '+') CONJ)*
+	def parse_disj():
+		result = Disj([parse_conj()])
+		while accept('|') or accept('+'):
+			result.append(parse_conj())
+		return result
+	# CONJ -> LL ('&' LL)*
+	def parse_conj():
+		result = Conj([parse_ll()])
+		while accept('&'):
+			result.append(parse_ll())
+		return result
+	# LL -> '(' DISJ ')' | '!' LL | str | str '~' str
+	def parse_ll():
+		if accept('('):
+			result = parse_disj()
+			expect(')')
+			return result
+		if accept('!'):
+			return Not(parse_ll())
+		# otherwise:
+		s = expect_lit()
+		if accept('~'):
+			return StrRange(s, expect_lit())
+		else:
+			return SubString(s)
+	# disjunction: True iff at least one of its items is True
+	class Disj(list):
+		def apply(self, string):
+			return any(item.apply(string) for item in self) # recall that `self` is a list
+	# disjunction: True iff all its items are True
+	class Conj(list):
+		def apply(self, string):
+			return all(item.apply(string) for item in self) # just replaced `any` by `all`
+	# negation: True iff its subformula is False
+	class Not:
+		def __init__(self, formula):
+			self.formula = formula
+		def apply(self, string):
+			return not self.formula.apply(string)
+	# range predicate: True iff at least one prefix of given string is lexicographically between the two bounds
+	class StrRange:
+		def __init__(self, a, b):
+			if a > b:
+				raise PatternException('Invalid range: %r comes after %r' % (a, b))
+			self.a = a
+			self.bn = b + '\x7f' # 'DEL' - highest ASCII char - we want "zzz" in "a~z"
+		def apply(self, string):
+			return self.a <= string <= self.bn
+	# substring predicate: (for some fixed s) True iff given string contains s as its substring
+	class SubString:
+		def __init__(self, substring):
+			self.substring = substring
+		def apply(self, string):
+			return self.substring in string
+	# here is the promised body
+	return parse_s()
+
+
+def load_pattern(string):
+	return parse_pattern(scan_pattern(string))
+
+
+class PatternCategorizer:
+	def __init__(self, pattern):
+		self._state = [(cat_pattern, []) for cat_pattern in pattern]
+	def add(self, key, value):
+		key = key.lower()
+		skip_wildcard = False
+		for cat_pattern, cat_state in self._state:
+			if cat_pattern is None: # wildcard
+				if not skip_wildcard:
+					cat_state.append(value)
+			else: # not wildcard
+				if cat_pattern.apply(key):
+					cat_state.append(value)
+					skip_wildcard = True
+	def get_result(self):
+		return [cat_state for cat_pattern, cat_state in self._state]
 
 
 #####################
 ## Viewer dispatch ##
 #####################
+
+
+class Dump(ABC):
+	@abstractmethod
+	def list_entries(self):
+		pass
+	@abstractmethod
+	def match_events(self, event_pattern):
+		pass
+	@abstractmethod
+	def open_entry(self, event, type):
+		pass
+
+class PhysicalDump(Dump):
+	def __init__(self, dump_name):
+		self.dump_name = dump_name
+	def list_entries(self):
+		return list_dump_entries(self.dump_name)
+	def match_events(self, event_pattern_s):
+		event_pattern = load_pattern(event_pattern_s)
+		events, types = list_dump_entries(self.dump_name)
+		pc = PatternCategorizer(event_pattern)
+		for event_id, event_name in events:
+			pc.add(event_name, (self.dump_name, event_id))
+		return pc.get_result()
+	def open_entry(self, event, type):
+		return open_dump_entry(self.dump_name, event, type)
+
+class VirtualDump(Dump):
+	def __init__(self, dump_pattern_s):
+		self.dump_pattern = load_pattern(dump_pattern_s)
+	def list_entries(self):
+		all_types = set()
+		# `all_types` will be populated with the union of `types` in all matched dumps
+		dpc = PatternCategorizer(self.dump_pattern)
+		for dump in list_dumps():
+			dpc.add(dump, dump)
+		for cat in dpc.get_result():
+			for dump in cat:
+				events, types = list_dump_entries(dump)
+				all_types.update(types)
+		# array of events will be left empty, as it is
+		# not useful to list events in virtual dumps
+		return [], sorted(all_types)
+	def match_events(self, event_pattern_s):
+		event_pattern = load_pattern(event_pattern_s)
+		dpc = PatternCategorizer(self.dump_pattern)
+		for dump in list_dumps():
+			dpc.add(dump, dump)
+		cat_prod = []
+		for cat in dpc.get_result():
+			pc = PatternCategorizer(event_pattern)
+			for dump in cat:
+				events, types = list_dump_entries(dump)
+				for event_id, event_name in events:
+					pc.add(event_name, (dump, event_id))
+			cat_prod += pc.get_result()
+		return cat_prod
+	def open_entry(self, event, type):
+		return None
 
 
 def catch_errors(function):
@@ -314,60 +601,66 @@ def catch_errors(function):
 		yield from html_exception(e)
 
 
-def get_inner_html_generator(dump, event, type):
-	def get_sibling(type):
-		return open_dump_entry(dump, event, type)
-	if type == '_':
-		return html_notype()
-	if event == '_':
-		return ("TODO aggregation") # TODO
-	file = open_dump_entry(dump, event, type)
-	if file is None:
-		return html_nonexistent()
-	return catch_errors(lambda: get_view_function(type)(file, get_sibling, event))
+def get_entries_in_category_by_type(category, type):
+	for dump, event in category:
+		file = open_dump_entry(dump, event, type)
+		if file:
+			yield file
 
 
-# these three functions replace plain
-# lists with lists of `(value, text)` pairs
-# where `value` is the internal representation
-# and `text` is the user-friendly representation
+def viewer_dispatch(dump, event, type, params):
+	# initialize the dump object (no IO)
+	if dump[0] == '@':
+		dump_obj = VirtualDump(dump[1:])
+	else:
+		dump_obj = PhysicalDump(dump)
+	
+	# obtain lists of dumps, events and entry types
+	# to be used in the navigation bar
+	try:
+		events, types = dump_obj.list_entries()
+	except FileNotFoundError:
+		return html_nosuchdump()
+	
+	# transform the lists to lists contain pairs of
+	# (internal identifier, human-friendly description)
+	# and begin with some placeholders
+	mdumps = [('_', 'Choose dump'), ('', 'Enter pattern...')]
+	mdumps += ((dump, dump.replace('.', ' --- ')) for dump in list_dumps())
+	mevents = [('_', 'Choose compilation event'), ('', 'Enter pattern...')]
+	mevents += ((e, e.upper() + ' --- ' + n) for e, n in events)
+	mtypes = [(type, type) for type in types]
+	
+	# placeholders?
+	if type == '_' and event == '_':
+		viewer_output = html_noentrysel()
+	elif type == '_':
+		viewer_output = html_notypesel()
+	elif event == '_':
+		viewer_output = html_noeventsel()
+	
+	# pattern?
+	elif event[0] == '@':
+		categories = dump_obj.match_events(event[1:])
+		by_type_it = (partial(get_entries_in_category_by_type, category) for category in categories)
+		aggregate = get_viewer(type).aggregate
+		viewer_output = html_table([
+			map(html_event_count, categories),
+			(catch_errors(lambda: aggregate(by_type(type), by_type, params.next_cat())) for by_type in by_type_it),
+		])
+	
+	# neither of above?
+	else:
+		by_type = partial(dump_obj.open_entry, event)
+		file = by_type(type)
+		if file:
+			view = get_viewer(type).view
+			viewer_output = catch_errors(lambda: view(file, by_type, params))
+		else:
+			viewer_output = html_nosuchentry()
 
-def dumps_to_pairs(dumps):
-	return ((dump, dump.replace('.', ' --- ')) for dump in dumps)
-
-def events_to_pairs(dump, events):
-	return [('_', 'Aggregated results, statistics')] \
-		+ sorted((event, event.upper() + ' --- ' + get_event_name(dump, event)) for event in events)
-
-def types_to_pairs(types):
-	return sorted((type, type) for type in types)
-
-
-def one_dump_item(dump, event, type):
-	dumps = list_dumps()
-	events, types = list_dump_entries(dump)
-
-	mdumps = dumps_to_pairs(dumps)
-	mevents = events_to_pairs(dump, events)
-	mtypes = types_to_pairs(types)
-
-	return html_all(mdumps, mevents, mtypes, dump, event, type, get_inner_html_generator(dump, event, type))
-
-
-# returns iterator of tuples(DUMP, iterator of tuples(EVENT, TYPE, HTML))
-# where HTML is actually another iterator - sorry for this
-def all_dump_items():
-	dumps = list_dumps()
-	mdumps = dumps_to_pairs(dumps)
-	for dump in dumps:
-		events, types = list_dump_entries(dump)
-
-		mevents = events_to_pairs(dump, events)
-		mtypes = types_to_pairs(types)
-
-		yield dump, ((event, type,
-			html_all(mdumps, mevents, mtypes, dump, event, type, get_inner_html_generator(dump, event, type))
-		) for event, type in product(events, types))
+	# generate the page
+	return html_all(mdumps, mevents, mtypes, dump, event, type, params, viewer_output)
 
 
 #################
@@ -378,36 +671,41 @@ def all_dump_items():
 class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
 		file, params = fsplit(self.path, '?', 1)
-
+		
 		special_paths = {
 			'/': self.do_GET_root,
 			'/s.css': self.do_GET_css,
+			'/refresh': self.do_GET_refresh,
 		}
 
 		if file in special_paths:
 			special_paths[file]()
 			return
 
-		empty, dump, entry = fsplit(file, '/', 2)
-		if empty != '':
-			self.send_error(400, explain='Path must start with "/"')
-			return
+		try:
+			e, dump, event, type = file.split('/', 3)
+			# the path should start with '/', so `e` should be empty (that is, `not e`),
+			# other parts should not be empty
+			valid = not e and dump and event and type
+		except ValueError:
+			# couldn't unpack: `split` returned bad number of arguments
+			valid = False
 
-		event, type, html = fsplit(entry, '.', 2)
-		if html != 'html' or not dump or not event or not type:
-			self.send_error(404, explain='Usage: "%s"'%self.absolute('DUMP/EVENT_HASH.TYPE.html'))
+		if not valid:
+			explain = 'Usage: http://%s/<DUMP>/<EVENT_HASH>/<TYPE>' % (self.headers['Host'] or http_host())
+			self.send_error(404, explain=explain)
 			return
 
 		self.send_response(200)
 		self.send_header('Content-Type', 'text/html')
 		self.end_headers()
-		self.wfile.writelines(bytes(line, 'utf-8') for line in one_dump_item(dump, event, type))
+		self.wfile.writelines(bytes(line, 'utf-8') for line in viewer_dispatch(dump, event, type, Params(params)))
 
 	def do_GET_root(self):
 		dump = get_newest_dump()
 		if dump:
 			self.send_response(302)
-			self.send_header('Location', self.absolute(dump + '/_._.html'))
+			self.send_header('Location', '/%s/%s/%s' % (dump, '_', '_'))
 			self.end_headers()
 		else:
 			self.send_error(204, explain='No available dumps')
@@ -418,14 +716,17 @@ class DumpBrowserHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		self.wfile.write(STYLESHEET)
 
-	def absolute(self, s):
-		return 'http://' + self.headers['Host'] + '/' + s
+	def do_GET_refresh(self):
+		list_dumps.cache_clear()
+		get_newest_dump.cache_clear()
+		list_dump_entries.cache_clear()
+		self.send_response(302)
+		self.send_header('Location', self.headers['Referer'] or '/')
+		self.end_headers()
 
 
 def listen(should_daemonize):
-	address = config.http_address
-	port = config.http_port
-	print('Starting server at http://%s:%i.' % (address or '*', port))
+	print('Starting server at http://' + http_host())
 	if should_daemonize:
 		child_pid = fork()
 		if child_pid != 0: # this is parent
@@ -435,139 +736,149 @@ def listen(should_daemonize):
 			signal.signal(signal.SIGHUP, signal.SIG_IGN)
 			signal.signal(signal.SIGTERM, lambda _s, _f: (remove(config.pidfile), exit()))
 			sys.stdin = sys.stdout = sys.stderr = open(devnull, 'w')
-	HTTPServer((address, port), DumpBrowserHTTPRequestHandler).serve_forever()
+	HTTPServer((config.http_address, config.http_port), DumpBrowserHTTPRequestHandler).serve_forever()
 
 
-#####################
-## Producing files ##
-#####################
+def http_host():
+	return '%s:%i' % (config.http_address or '*', config.http_port)
 
 
-def create_html_dir():
-	name = config.output_dir
-	if config.clobber_output_dir:
-		try:
-			mkdir(name)
-		except FileExistsError:
-			rmtree(name)
-			mkdir(name)
-		return name
-	for i in count(1):
-		try:
-			mkdir(name)
-			return name
-		except FileExistsError:
-			name = config.output_dir + '.' + str(i)
+def signal_server(message, sig):
+	# I will find you ...
+	try:
+		pid = int(readfile(config.pidfile))
+	except FileNotFoundError:
+		print('PID file missing. Is the server running?')
+		return False
+	except Exception as e:
+		print('Error reading PID file:', e)
+		return False
+
+	# ... and I will kill you
+	try:
+		print(message % pid)
+		kill(pid, sig)
+		return True
+	except ProcessLookupError:
+		print('Not running. Deleting PID file.')
+		remove(config.pidfile)
+		return False
+	except PermissionError:
+		argv0 = get_argv0()
+		print('Permission denied. Solutions:')
+		print('- If you started the server as root, use')
+		print('  `sudo %s stop` or `su -c "%s stop"`.' % (argv0, argv0))
+		print('- If the server is no longer running (and the')
+		print('  PID was recycled), use `%s rmpid`.' % argv0)
+		return False
 
 
-def save():
-	total = 0
-	dirname = create_html_dir()
-	for dump, items in all_dump_items():
-		subdirname = path.join(dirname, dump)
-		mkdir(subdir)
-		for event, type, html in items:
-			filename = path.join(subdirname, event + '.' + type + '.html')
-			with open(filename, 'w') as file:
-				file.writelines(html)
-				total += file.tell()
-	return total
-
-
-def drysave():
-	return sum(len(bytes(line, 'utf-8')) for _, items in all_dump_items() for _, _, html in items for line in html)
-
-
-def pretty_space(space):
-	if space > (1<<30):
-		return str(round(space / (1<<30))) + 'GiB'
-	elif space > (1<<20):
-		return str(round(space / (1<<20))) + 'MiB'
-	elif space > (1<<10):
-		return str(round(space / (1<<10))) + 'kiB'
-	else:
-		return str(space) + 'B'
-
-
-##########
-## Main ##
-##########
+##################
+## Command-line ##
+##################
 
 
 def cmd_fg():
-	listen(should_daemonize=False)
+	try:
+		listen(should_daemonize=False)
+	except KeyboardInterrupt:
+		print()
+		print('Stopping server')
 
 def cmd_start():
+	if path.isfile(config.pidfile):
+		argv0 = get_argv0()
+		print('PID file already exists.')
+		print('Please, stop/reload the server:')
+		print('  `%s stop` or `%s reload`' % (argv0, argv0))
+		print('If it does not respond, use `%s kill`.' % argv0)
+		print('If you are sure it is not running, use `%s rmpid`.' % argv0)
+		return
 	listen(should_daemonize=True)
 
 def cmd_stop():
-	pid = int(readfile(config.pidfile))
-	print('Terminating process id %i.' % pid)
-	kill(pid, signal.SIGTERM)
+	if signal_server('Terminating process id %i.', signal.SIGTERM):
+		pass
+	else:
+		exit(1)
 
-def cmd_save():
-	print('Produced %s of HTML.' % pretty_space(save()))
+def cmd_kill():
+	if signal_server('Killing process id %i.', signal.SIGKILL):
+		print('Deleting PID file.')
+		remove(config.pidfile)
+	else:
+		exit(1)
 
-def cmd_drysave():
-	print('Would produce %s of HTML.' % pretty_space(drysave()))
+def cmd_reload():
+	cmd_stop()
+	cmd_start()
+
+def cmd_rmpid():
+	try:
+		print('Deleting PID file.')
+		remove(config.pidfile)
+	except Exception as e:
+		print('Error:', e)
+		exit(1)
 
 def cmd_usage():
 	usage()
 
 
+def get_argv0():
+	return sys.argv[0] if sys.argv else 'dump-browser'
+
+
 def usage():
-	name = sys.argv[0] if sys.argv else 'dump-browser'
+	argv0 = get_argv0()
 	print('Usage:')
-	for command, (_, desc) in COMMANDS:
-		print('    %s %s' % (name, command))
-		print('        %s' % desc)
+	for key, value in COMMANDS:
+		print('    %s %s' % (argv0, key))
+		print('        %s' % value.desc)
 		print()
 	print('With current configuration, the server will')
 	print('be accessible at http://%s:%i' % (config.http_address or '*', config.http_port))
 
 
+Command = namedtuple('Command', ['fn', 'desc'])
+
 COMMANDS = [
-	('fg', (cmd_fg, 'Start server in foreground (terminate by ^C)')),
-	('start', (cmd_start, 'Start server in background (terminate by stop command)')),
-	('stop', (cmd_stop, 'Stop server running in background')),
-	('save', (cmd_save, 'Do not start a server, save HTML files to disk')),
-	('drysave', (cmd_drysave, 'Compute space HTML files would occupy, if they were saved')),
-	('usage', (cmd_usage, 'Display this help')),
+	('fg', Command(cmd_fg, 'Start server in foreground (terminate by ^C)')),
+	('start', Command(cmd_start, 'Start server in background (terminate by stop command)')),
+	('stop', Command(cmd_stop, 'Stop server running in background')),
+	('kill', Command(cmd_kill, 'Kill server running in background (only use if not responding!)')),
+	('reload', Command(cmd_reload, 'Equivalent to `stop` and then `start`')),
+	('rmpid', Command(cmd_rmpid, 'Delete PID file (only use if the server is no more running!)')),
+	('usage', Command(cmd_usage, 'Display this help')),
 ]
 
 
-def main():
-	# move to the script's directory to make
-	# relative paths in conf work as specified
-	chdir(sys.path[0])
+# move to the script's directory to make
+# relative paths in conf work as specified
+chdir(sys.path[0])
 
-	# load conf file or create one and give
-	# the user chance to edit it externally
-	try:
-		global config
-		config = load_config()
-	except FileNotFoundError:
-		verbose_create_missing_config()
-		exit(1)
+# load conf file or create one and give
+# the user chance to edit it externally
+try:
+	config = load_config()
+except FileNotFoundError:
+	verbose_create_missing_config()
+	exit(1)
 
-	# parse commandline argument/command (if any)
-	if len(sys.argv) < 2:
-		command = config.default_command
-	elif len(sys.argv) == 2:
-		_, command = sys.argv
-	else:
-		print('Too many arguments.')
-		usage()
-		exit(1)
+# parse commandline argument/command (if any)
+if len(sys.argv) < 2:
+	command = config.default_command
+elif len(sys.argv) == 2:
+	command = sys.argv[1].strip('-')
+else:
+	print('Too many arguments.')
+	usage()
+	exit(1)
 
-	# execute the command
-	try:
-		fn, _ = dict(COMMANDS)[command]
-		fn()
-	except KeyError:
-		print('Invalid command-line argument.')
-		usage()
-		exit(1)
-
-
-main()
+# execute the command
+try:
+	dict(COMMANDS)[command].fn()
+except KeyError:
+	print('Invalid command-line argument.')
+	usage()
+	exit(1)

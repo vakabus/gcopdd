@@ -1,63 +1,58 @@
 from collections import namedtuple
-from itertools import takewhile, count
+from itertools import count
+from functools import reduce
+
 from viewers.common import *
 
 
-TreeNode = namedtuple('TreeNode', ['parent', 'desc', 'children'])
+def html_node(node, params):
+	if isinstance(node.desc, ClassDesc):
+		yield '<li>'
+		yield from html_class(node.desc)
+		yield from html_subtree(node, params)
+		yield '</li>'
+	elif isinstance(node.desc, int):
+		yield '<li class="here">'
+		yield '<div id="%shere%i"></div>' % (params.cat, node.desc)
+		yield '</li>'
+	else:
+		raise TypeError()
 
 
-def read_call_tree(lines):
-	stack = []
-	root = TreeNode(None, None, [])
-	currnode = root
-
-	for line in lines:
-		newstack = [ClassDesc.parse(fullname) for fullname in line.split()]
-		if len(newstack) == len(stack)+1: # push?
-			if all(map(ClassDesc.__eq__, newstack, stack)): # nothing else changed?
-				# valid push, add subtree
-				newclassdesc = newstack[-1]
-				newnode = TreeNode(currnode, newclassdesc, [])
-				currnode.children.append(newnode)
-				# move to the subtree
-				currnode = newnode
-			else:
-				raise Exception('Invalid phaseStack dump file: push modifies other items')
-		elif len(newstack) == len(stack)-1: # pop?
-			if all(map(ClassDesc.__eq__, newstack, stack)): # nothing else changed?
-				# valid pop, leave subtree
-				currnode = currnode.parent
-			else:
-				raise Exception('Invalid phaseStack dump file: pop modifies other items')
-		else:
-			raise Exception('Invalid phaseStack dump file')
-		stack = newstack
-
-	return root
-
-
-def html_node(node, counter):
-	yield '<li>'
-	yield from html_class(node.desc)
-	yield from html_subtree(node, counter)
-	yield '</li>'
-
-
-def html_subtree(node, counter):
+def html_subtree(node, params):
 	yield '<ul>'
-	yield '<div id="here%i" class="here"></div>' % next(counter)
 	for childnode in node.children:
-		yield from html_node(childnode, counter)
+		yield from html_node(childnode, params)
 	yield '</ul>'
-	yield '<div id="here%i" class="here"></div>' % next(counter)
 
 
 def html_class(desc):
 	yield '%s<span style="color: lightgray">, %s</span>' % (desc.simplename, desc.package)
 
 
-def view(lines_n, *_):
-	lines = map(str.strip, lines_n) # remove '\n' characters
-	call_tree = read_call_tree(lines)
+def html_view_tree(call_tree, params):
+	yield from html_ctmode_switch(params)
+	yield from html_subtree(call_tree, params)
 
-	return html_subtree(call_tree, count())
+
+def html_view_list(classes, params):
+	yield from html_ctmode_switch(params)
+	yield '<ul>'
+	for cnt, desc in enumerate(classes):
+		yield '<li>'
+		yield '<span style="color: gray">%s.</span>%s' % (desc.package, desc.simplename)
+		yield '<ul><div id="%shere%i" class="here"></div></ul>' % (params.cat, cnt)
+		yield '</li>'
+	yield '</ul>'
+
+
+def view(file, get_sibling, params):
+	mapping, lines = process_phasestack(stripped_lines(file), params)
+	call_tree = read_call_tree(lines)
+	return html_view_tree(call_tree, params)
+
+
+def aggregate(files, get_sibling, params):
+	mappings, lines = aggregate_phasestacks((stripped_lines(file) for file in files), params)
+	call_tree = read_call_tree(lines)
+	return html_view_tree(call_tree, params)
