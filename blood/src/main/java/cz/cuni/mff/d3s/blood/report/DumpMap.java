@@ -49,7 +49,7 @@ public final class DumpMap {
 
     private static void dumpTimingInformation(File reportDir, Instant compilationStart, Duration compilationDuration, String id) {
         try (var fos = DumpHelpers.createDumpFile(reportDir, "timing", id)) {
-            fos.write((compilationStart.toString() + "\n" + compilationDuration.toMillis() + "ms\n").getBytes(StandardCharsets.UTF_8));
+            fos.write((compilationStart.toString() + "\n" + compilationDuration.toNanos()/1000 + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             e.printStackTrace();
         }
