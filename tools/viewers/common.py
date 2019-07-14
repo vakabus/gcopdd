@@ -379,17 +379,26 @@ def process_phasestack(lines, params, canon=None):
 	return list(range(len(lines))), lines
 
 def aggregate_phasestacks(orig_lines2, params):
+	# 1) initialization
 	ctmode = _get_ctmode(params)
 	canon = Canon()
+	# 2) orig_lines2 -> lines2, mappings'
+	#    - apply the transformation (dictated by `ctmode`)
+	#      to each input `phasestack` individually
 	mappings = []
 	lines2 = []
 	for orig_lines in orig_lines2:
 		mapping, lines = process_phasestack(orig_lines, params, canon)
 		mappings.append(mapping)
 		lines2.append(lines)
+	del orig_lines2
+	# 3) lines2, mappings' -> lines2, mappings', result
+	#    - merge the transformed inputs into one output
 	result = []
-	for lines in _rm_subseq(iter(lines2)):
+	for lines in _rm_subseq(lines2):
 		result = merge(result, lines)
+	# 4) lines2, mappings', result -> mappings, result
+	#    - calculate the corresponding mappings of the inputs
 	for mapping, lines in zip(mappings, lines2):
 		_subseq_mapping(result, lines)
 		for i, mapping_i in enumerate(mapping):
@@ -398,10 +407,13 @@ def aggregate_phasestacks(orig_lines2, params):
 
 
 def _rm_subseq(sequences):
+	return _rm_subseq_recursive(iter(sorted(sequences, key=len, reverse=True)))
+
+def _rm_subseq_recursive(sequences):
 	head = next(sequences, None)
 	if head is not None:
 		yield head
-		yield from _rm_subseq(item for item in sequences if not _is_subseq(head, item))
+		yield from _rm_subseq_recursive(item for item in sequences if not _is_subseq(head, item))
 
 def _is_subseq(longer, shorter):
 	difference = len(longer) - len(shorter)
@@ -419,7 +431,7 @@ def _is_subseq(longer, shorter):
 	return True
 
 def _subseq_mapping(longer, shorter):
-	assert _is_subseq(longer, shorter), (longer, shorter)
+	assert _is_subseq(longer, shorter)
 	longer_index = 0
 	longer_iter = iter(longer)
 	for idx, shorter_elem in enumerate(shorter):
