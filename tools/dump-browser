@@ -23,6 +23,7 @@ from functools import lru_cache, partial
 from abc import ABC, abstractmethod
 from re import compile as Regex
 from collections import namedtuple
+from io import StringIO
 
 
 #####################
@@ -602,9 +603,8 @@ def catch_errors(function):
 
 def open_entries_in_category_by_type(category, type):
 	for dump, event in category:
-		file = open_dump_entry(dump, event, type)
-		if file:
-			yield file
+		# treat missing files as empty
+		yield open_dump_entry(dump, event, type) or StringIO('')
 
 
 def viewer_dispatch(dump, event, type, params):
