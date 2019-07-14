@@ -27,7 +27,7 @@ def html_aggregate(total_duration, duration_mean, duration_variance, duration_ge
 	yield 'Duration mean: <b>%s</b> (&sigma; = <b>%s</b>)<br>' % (pretty_duration(duration_mean), pretty_duration(sqrt(duration_variance)))
 	yield 'Duration variance (&sigma;&sup2;): <b>%s&sup2;</b><br>' % pretty_duration(duration_variance)
 	yield '<del>Duration geometric mean</del>: <b>%s</b><br>' % pretty_duration(duration_geometric_mean)
-	yield '<table class="mono" style="white-space: nowrap">'
+	yield '<table class="mono">'
 	yield '<tr><th>Request</th><th>Recompilation</th><th>Started</th><th>Duration</th></tr>'
 	for event in events:
 		yield '<tr><td>%s</td><td>%s/%s</td><td>%s</td><td style="text-align: right">%s</td></tr>' % (

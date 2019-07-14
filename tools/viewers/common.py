@@ -1,5 +1,4 @@
 # TODO:
-# - counting occurences of phases in aggregated phasestack (similarly to nodelist)
 # - javascript legend for matrices
 
 __all__ = [
@@ -90,6 +89,9 @@ def css_color(red, saturation, lightness):
 
 
 STYLESHEET = b'''
+	body {
+		white-space: nowrap;
+	}
 	.here {
 		list-style-type: none;
 	}
