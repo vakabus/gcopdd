@@ -57,6 +57,9 @@ Example config named `blood/config.example` will be generated during compilation
 It is possible to view dumps in their graphical representation using a web browser.
 Execute `tools/dump-browser` to get more information.
 
+***Caution***: on some occasions, dump-browser (and especially the web browser used with it) may take hundreds of megabytes or gigabytes of memory.
+Make sure you do not have unsaved data in your browser, in case you (or your OOM killer) need to terminate it.
+
 ### Concrete example of usage
 
 ```sh
@@ -64,7 +67,7 @@ Execute `tools/dump-browser` to get more information.
 git clone https://github.com/oracle/graal.git
 
 # choose revision we want to analyse
-cd graal; git checkout vm-19.0.2; cd ..
+git -C graal checkout vm-19.0.2
 
 # checkout whatever version of graal you like
 make build
