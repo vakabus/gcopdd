@@ -245,9 +245,8 @@ def get_event_name(dump, event):
 	file = open_dump_entry(dump, event, EVENT_NAME_TYPE)
 	if file is None:
 		return '???'
-	name = file.read()
-	file.close()
-	return name
+	with file:
+		return file.read()
 
 
 def get_viewer(type):
@@ -601,7 +600,7 @@ def catch_errors(function):
 		yield from html_exception(e)
 
 
-def get_entries_in_category_by_type(category, type):
+def open_entries_in_category_by_type(category, type):
 	for dump, event in category:
 		file = open_dump_entry(dump, event, type)
 		if file:
@@ -642,20 +641,21 @@ def viewer_dispatch(dump, event, type, params):
 	# pattern?
 	elif event[0] == '@':
 		categories = dump_obj.match_events(event[1:])
-		by_type_it = (partial(get_entries_in_category_by_type, category) for category in categories)
 		aggregate = get_viewer(type).aggregate
-		viewer_output = html_table([
-			map(html_event_count, categories),
-			(catch_errors(lambda: aggregate(by_type(type), by_type, params.next_cat())) for by_type in by_type_it),
-		])
+		def generate_table_body():
+			for category in categories:
+				open_by_type = partial(open_entries_in_category_by_type, category)
+				file = open_by_type(type)
+				yield catch_errors(lambda: aggregate(file, open_by_type, params.next_cat()))
+		viewer_output = html_table([map(html_event_count, categories), generate_table_body()])
 	
 	# neither of above?
 	else:
-		by_type = partial(dump_obj.open_entry, event)
-		file = by_type(type)
+		open_by_type = partial(dump_obj.open_entry, event)
+		file = open_by_type(type)
 		if file:
 			view = get_viewer(type).view
-			viewer_output = catch_errors(lambda: view(file, by_type, params))
+			viewer_output = catch_errors(lambda: view(file, open_by_type, params))
 		else:
 			viewer_output = html_nosuchentry()
 
@@ -735,6 +735,7 @@ def listen(should_daemonize):
 		else: # this is child
 			signal.signal(signal.SIGHUP, signal.SIG_IGN)
 			signal.signal(signal.SIGTERM, lambda _s, _f: (remove(config.pidfile), exit()))
+			sys.stdin.close(); sys.stdout.close(); sys.stderr.close()
 			sys.stdin = sys.stdout = sys.stderr = open(devnull, 'w')
 	HTTPServer((config.http_address, config.http_port), DumpBrowserHTTPRequestHandler).serve_forever()
 

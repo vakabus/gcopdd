@@ -39,18 +39,19 @@ def html_aggregate(total_duration, duration_mean, duration_variance, duration_ge
 	yield '</table>'
 
 
-def aggregate(files, get_sibling, params):
+def aggregate(files, open_sibling, params):
 	# parse inputs
 	events = []
-	for timing_f, request_f in zip(files, get_sibling('request')):
-		started, duration = stripped_lines(timing_f)
-		event = CompilationEvent(
-			started = datetime.strptime(started, '%Y-%m-%dT%H:%M:%S.%fZ'),
-			duration = int(duration),
-			request = request_f.read(),
-			recomp = [], # we need to sort the array first
-		)
-		events.append(event)
+	for timing_f, request_f in zip(files, open_sibling('request')):
+		with request_f:
+			started, duration = stripped_lines_close(timing_f)
+			event = CompilationEvent(
+				started = datetime.strptime(started, '%Y-%m-%dT%H:%M:%S.%fZ'),
+				duration = int(duration),
+				request = request_f.read(),
+				recomp = [], # we need to sort the array first
+			)
+			events.append(event)
 
 	# process data
 	events.sort()

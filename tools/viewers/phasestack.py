@@ -46,13 +46,13 @@ def html_view_list(classes, params):
 	yield '</ul>'
 
 
-def view(file, get_sibling, params):
-	mapping, lines = process_phasestack(stripped_lines(file), params)
+def view(file, open_sibling, params):
+	mapping, lines = process_phasestack(stripped_lines_close(file), params)
 	call_tree = read_call_tree(lines)
 	return html_view_tree(call_tree, params)
 
 
-def aggregate(files, get_sibling, params):
-	mappings, lines = aggregate_phasestacks((stripped_lines(file) for file in files), params)
+def aggregate(files, open_sibling, params):
+	mappings, lines = aggregate_phasestacks(map(stripped_lines_close, files), params)
 	call_tree = read_call_tree(lines)
 	return html_view_tree(call_tree, params)

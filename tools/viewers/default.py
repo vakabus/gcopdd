@@ -15,9 +15,14 @@ def html_aggregate(data_it):
 	yield '</pre>'
 
 
-def view(file, get_sibling, params):
-	return html_view(file.read())
+def read_and_close(file):
+	with file:
+		return file.read()
 
 
-def aggregate(files, get_sibling, params):
-	return html_aggregate(file.read() for file in files)
+def view(file, open_sibling, params):
+	return html_view(read_and_close(file))
+
+
+def aggregate(files, open_sibling, params):
+	return html_aggregate(map(read_and_close, files))

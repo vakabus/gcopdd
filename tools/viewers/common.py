@@ -1,11 +1,9 @@
 # TODO:
 # - counting occurences of phases in aggregated phasestack (similarly to nodelist)
-# - resource leaks (cpython closes files automatically, but this is not guaranteed
-#                   by the language norm ... and relying on it is bad practise anyway)
 # - javascript legend for matrices
 
 __all__ = [
-	'stripped_lines', 'take_up_to_empty', 'increment_in_dict', 'increment_all_in_dict',
+	'stripped_lines_close', 'take_up_to_empty', 'increment_in_dict', 'increment_all_in_dict',
 	# HTML & CSS
 	'pretty_number', 'percent_str', 'css_color', 'html_ctmode_switch',
 	# Data types
@@ -22,14 +20,14 @@ __all__ = [
 	'uniq', 'roll', 'merge',
 ]
 
-from itertools import count, chain, takewhile
-from functools import reduce
+from itertools import count, takewhile
 from collections import namedtuple
 from html import escape
 
 
-def stripped_lines(lines_n):
-	return map(str.strip, lines_n)
+def stripped_lines_close(file):
+	with file:
+		yield from map(str.strip, file)
 
 
 def take_up_to_empty(lines):
@@ -387,9 +385,10 @@ def aggregate_phasestacks(orig_lines2, params):
 		mapping, lines = process_phasestack(orig_lines, params, canon)
 		mappings.append(mapping)
 		lines2.append(lines)
-	result = reduce(merge, _rm_subseq(iter(lines2)))
-	for idx, (mapping, lines) in enumerate(zip(mappings, lines2)):
-		assert _is_subseq(result, lines), (result, lines)
+	result = []
+	for lines in _rm_subseq(iter(lines2)):
+		result = merge(result, lines)
+	for mapping, lines in zip(mappings, lines2):
 		_subseq_mapping(result, lines)
 		for i, mapping_i in enumerate(mapping):
 			mapping[i] = lines[mapping_i]
@@ -418,6 +417,7 @@ def _is_subseq(longer, shorter):
 	return True
 
 def _subseq_mapping(longer, shorter):
+	assert _is_subseq(longer, shorter), (longer, shorter)
 	longer_index = 0
 	longer_iter = iter(longer)
 	for idx, shorter_elem in enumerate(shorter):

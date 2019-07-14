@@ -20,17 +20,17 @@ def html_aggregate(counts_and_classes):
 	yield '</ul>'
 
 
-def view(file, get_sibling, params):
-	lines = stripped_lines(file)
+def view(file, open_sibling, params):
+	lines = stripped_lines_close(file)
 	classes = read_classes(lines)
 	return html_view(classes)
 
 
-def aggregate(files, get_sibling, params):
+def aggregate(files, open_sibling, params):
 	d = {}
 	total = 0
 	for file in files:
-		lines = stripped_lines(file)
+		lines = stripped_lines_close(file)
 		classes = read_classes(lines)
 		increment_all_in_dict(d, classes)
 		total += 1

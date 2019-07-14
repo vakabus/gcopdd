@@ -23,12 +23,12 @@ def html_all(phases, matrix, params):
 	yield '</table>'
 
 
-def view(file, get_sibling, params):
-	mapping, phasestack_lines = process_phasestack(stripped_lines(get_sibling('phasestack')), params)
+def view(file, open_sibling, params):
+	mapping, phasestack_lines = process_phasestack(stripped_lines_close(open_sibling('phasestack')), params)
 	expl = CallTreePosition.list_from_phasestack_dump(phasestack_lines)
 	phasestack_lines = len(phasestack_lines) # the contents are no longer needed (just the size)
 
-	lines = stripped_lines(file)
+	lines = stripped_lines_close(file)
 	
 	# depmat file has two segments separated by empty line
 	phases = list(map(int, take_up_to_empty(lines)))
@@ -39,15 +39,15 @@ def view(file, get_sibling, params):
 	return html_all(expl, matrix, params)
 
 
-def aggregate(files, get_sibling, params):
-	mappings, phasestack_lines = aggregate_phasestacks((stripped_lines(file) for file in get_sibling('phasestack')), params)
+def aggregate(files, open_sibling, params):
+	mappings, phasestack_lines = aggregate_phasestacks(map(stripped_lines_close, open_sibling('phasestack')), params)
 	expl = CallTreePosition.list_from_phasestack_dump(phasestack_lines)
 	phasestack_lines = len(phasestack_lines) # the contents are no longer needed (just the size)
 	
 	total_matrix = make_matrix(phasestack_lines, phasestack_lines, DependencyValue(0, 0, 0))
 	
 	for mapping, file in zip(mappings, files):
-		lines = stripped_lines(file)
+		lines = stripped_lines_close(file)
 		
 		# depmat file has two segments separated by empty line
 		phases = list(map(int, take_up_to_empty(lines)))
