@@ -24,6 +24,8 @@ from abc import ABC, abstractmethod
 from re import compile as Regex
 from collections import namedtuple
 from io import StringIO
+from time import sleep
+import webbrowser
 
 
 #####################
@@ -779,6 +781,50 @@ def signal_server(message, sig):
 ##################
 
 
+def cmd_auto():
+	try:
+		pid = int(readfile(config.pidfile))
+	except FileNotFoundError:
+		# server not running? ok
+		pid = None
+	except Exception as e:
+		# probably serious configuration error...
+		# report it, because the new server may have
+		# problem starting anyway
+		print('Error reading PID file:', e)
+		return False
+
+	if pid is not None:
+		try:
+			# stop the old server
+			kill(pid, signal.SIGTERM)
+			# unfortunately, UNIX signals do not provide feedback... wait up to 5s
+			for i in range(50):
+				sleep(.1)
+				# kill(..., 0) does nothing, but gives us useful info:
+				# returns `None` = killable (thus still alive)
+				# raises = not killable (died - if it would be EPERM, then it
+				#                        would have triggered on the first `kill`)
+				kill(pid, 0)
+			# timed out, try SIGKILL
+			kill(pid, signal.SIGKILL)
+			sleep(.1)
+			# now, the process is dead for sure. continue to removing pidfile.
+		except Exception:
+			# one of the `kill`s failed.
+			# this means the process is no longer running, which is actually good.
+			pass
+		# we do not know if the pidfile survived.
+		if path.isfile(config.pidfile):
+			remove(config.pidfile)
+
+	# start server
+	listen(should_daemonize=True)
+	# give it some time to initialize
+	sleep(.1)
+	# start client
+	webbrowser.open('http://%s:%i/' % (config.http_address or 'localhost', config.http_port))
+
 def cmd_fg():
 	try:
 		listen(should_daemonize=False)
@@ -844,6 +890,7 @@ def usage():
 Command = namedtuple('Command', ['fn', 'desc'])
 
 COMMANDS = [
+	('auto', Command(cmd_auto, 'Start server in background and open web browser')),
 	('fg', Command(cmd_fg, 'Start server in foreground (terminate by ^C)')),
 	('start', Command(cmd_start, 'Start server in background (terminate by stop command)')),
 	('stop', Command(cmd_stop, 'Stop server running in background')),
