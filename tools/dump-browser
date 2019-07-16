@@ -301,6 +301,9 @@ STYLESHEET = b'''
 		text-decoration: unset;
 		padding: 0 0.25em;
 	}
+	#noctrl:target #header, #noctrl:target #header-placeholder {
+		display: none;
+	}
 ''' + import_module('viewers.default').STYLESHEET
 
 
@@ -344,7 +347,7 @@ def html_table(it):
 
 def html_all(dumps, events, types, dump, event, type, params, inner_html_generator):
 	yield '<!doctype html><html><head><meta charset="utf-8"><title>Dump browser</title>'
-	yield '<link rel="stylesheet" href="/s.css"></head><body>'
+	yield '<link rel="stylesheet" href="/s.css"></head><body id="noctrl">'
 
 	yield '<div id="header">'
 	yield '<a href="/refresh" class="button" title="Refresh">\u27f3</a>' # U+27F3 "Clockwise Gapped Circle Arrow"

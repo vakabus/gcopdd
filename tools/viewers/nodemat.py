@@ -5,7 +5,7 @@ EXPECTED_ITERATIONS = 32
 
 
 JS_LEGEND = """
-	var phase, ps = window.open('phasestack%s', '', 'toolbar=no');
+	var phase, ps = window.open('phasestack%s#noctrl', '', 'toolbar=no');
 	function here(i) {
 		return ps.document.getElementById('%shere' + i);
 	}

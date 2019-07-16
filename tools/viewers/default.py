@@ -83,11 +83,14 @@ STYLESHEET = b'''
 		text-decoration: unset;
 		display: block;
 	}
-	fieldset.ctmode-switch {
+	.ctmode-switch {
 		display: inline-block;
 		margin: 0 1em 1em 0;
 	}
-	table fieldset.ctmode-switch {
+	table .ctmode-switch {
 		margin: 1em;
+	}
+	#noctrl:target .ctmode-switch {
+		display: none;
 	}
 '''
