@@ -1,6 +1,3 @@
-# TODO:
-# - javascript legend for matrices
-
 __all__ = [
 	'stripped_lines_close', 'take_up_to_empty', 'increment_in_dict', 'increment_all_in_dict',
 	# HTML & CSS

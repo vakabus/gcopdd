@@ -34,18 +34,27 @@ STYLESHEET = b'''
 	}
 	.here {
 		list-style-type: none;
+		height: 0;
+		line-height: 0;
+		text-shadow: 0 0 1px white, -3px -3px 1px white, -3px 3px 1px white, 3px -3px 1px white, 3px 3px 1px white;
 	}
 	.here div {
 		position: relative;
 		top: -7em;
 	}
-	.here div:target::before {
+	.here div:target::before, .here div.target::before {
 		content: '< here';
 		position: relative;
 		left: -1em;
 		top: 7em;
-		color: red;
+		color: blue;
 		font-weight: bold;
+	}
+	.here div.targetfrom::before {
+		content: '< from';
+	}
+	.here div.targetto::before {
+		content: '< to';
 	}
 	.mono {
 		font-family: monospace;

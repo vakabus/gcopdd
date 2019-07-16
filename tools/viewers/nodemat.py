@@ -4,11 +4,35 @@ from viewers.common import *
 EXPECTED_ITERATIONS = 32
 
 
+JS_LEGEND = """
+	var phase, ps = window.open('phasestack%s', '', 'toolbar=no');
+	function here(i) {
+		return ps.document.getElementById('%shere' + i);
+	}
+	document.onmouseover = function(event) {
+		if(event.target.getAttribute('data-phase') !== null) {
+			phase = here(event.target.getAttribute('data-phase'));
+			if(phase) phase.className = 'target';
+		}
+	};
+	document.onmouseout = function(event) {
+		if(event.target.getAttribute('data-phase') !== null) {
+			if(phase) phase.className = '';
+		}
+	};
+	window.onunload = function() {
+		ps.close();
+	};
+""".replace('\n', '')
+
+
 def html_td(dv, phase, node, col_max, params):
 	color = css_color(dv.ratio()/(col_max or 1), dv.iterations / EXPECTED_ITERATIONS, 0.5)
 	hint = 'Click to see phase stack'
-	yield '<td style="background-color: %s" title="%s\n\nNode:\n%s\n\nPhase:\n%s\n\n%s">' % (color, dv, node.simplename, phase.desc(), hint)
-	yield '<a href="phasestack%s#%shere%i" class="nolink">' % (params, params.cat, phase.id)
+	yield '<td style="background-color: %s" title="%s\n\nNode:\n%s\n\nPhase:\n%s\n\n%s">' % (
+		color, dv, node.simplename, phase.desc(), hint
+	)
+	yield '<a href="phasestack%s#%shere%i" class="nolink" data-phase="%i">' % (params, params.cat, phase.id, phase.id)
 	yield '%s<br>%s' % (percent_str(dv.ratio()), pretty_number(dv.iterations))
 	yield '</a>'
 	yield '</td>'
@@ -47,6 +71,7 @@ def html_table(nodes, phases, matrix, col_maxs, params):
 
 def html_all(nodes, phases, matrix1, matrix1m, matrix2, matrix2m, params):
 	yield from html_ctmode_switch(params)
+	yield '<button onclick="%s">JS legend</button>' % (JS_LEGEND % (params, params.cat))
 	yield '<style>%s</style>' % css_table_header(nodes)
 	yield '<table class="mono">'
 	yield from html_table_header(nodes)
