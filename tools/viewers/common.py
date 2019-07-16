@@ -90,16 +90,16 @@ def css_color(red, saturation, lightness):
 
 def html_ctmode_switch(params):
 	curr_mode = _get_ctmode(params)
-	yield '<form class="ctmode-switch"><fieldset>'
+	yield '<fieldset class="ctmode-switch">'
 	yield '<legend>Call tree mode</legend>'
 	for mode in ['full', 'roll', 'stack', 'top']:
-		yield '<input type="radio" name="ctmode" value="%s" id="%sctmode_%s" onclick="%s"%s>' % (
-			mode, params.cat, mode,
+		yield '<input type="radio" name="%sctmode" value="%s" id="%sctmode_%s" onclick="%s"%s>' % (
+			params.cat, mode, params.cat, mode,
 			"location.href = '%s'; return false" % escape(params.str_with('ctmode', mode)),
 			(' checked' if mode == curr_mode else ''),
 		)
 		yield '<label for="%sctmode_%s"> %s</label> ' % (params.cat, mode, mode)
-	yield '</fieldset></form>'
+	yield '</fieldset>'
 
 
 ################

@@ -74,11 +74,11 @@ STYLESHEET = b'''
 		text-decoration: unset;
 		display: block;
 	}
-	form.ctmode-switch fieldset {
+	fieldset.ctmode-switch {
 		display: inline-block;
 		margin: 0 1em 1em 0;
 	}
-	table form.ctmode-switch fieldset {
+	table fieldset.ctmode-switch {
 		margin: 1em;
 	}
 '''
