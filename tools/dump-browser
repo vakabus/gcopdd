@@ -264,6 +264,9 @@ def get_viewer(type):
 
 
 STYLESHEET = b'''
+	body {
+		font-family: sans-serif;
+	}
 	div#header {
 		position: fixed;
 		left: 0;
