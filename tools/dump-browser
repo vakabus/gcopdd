@@ -4,7 +4,6 @@
 # - thorough testing
 # - remembering patterns
 # - caching
-# - documentation
 
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
