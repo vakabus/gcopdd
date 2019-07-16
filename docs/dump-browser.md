@@ -86,6 +86,10 @@ If you want to stop it to release the memory and the network port, use `tools/du
 
 You can get more information on invocation by issuing `tools/dump-browser usage`.
 
+***Caution***: on some occasions, dump-browser (and especially the web browser used with it)
+may take hundreds of megabytes or gigabytes of memory. Make sure you do not have unsaved data
+in your browser, in case you (or your OOM killer) need to terminate it.
+
 ### Starting for debugging
 
 Executing as `tools/dump-browser fg` will start *dump-browser*

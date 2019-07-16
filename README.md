@@ -54,11 +54,7 @@ Example config named `blood/config.example` will be generated during compilation
 
 ### Browsing dumps
 
-It is possible to view dumps in their graphical representation using a web browser.
-Execute `tools/dump-browser` to get more information.
-
-***Caution***: on some occasions, dump-browser (and especially the web browser used with it) may take hundreds of megabytes or gigabytes of memory.
-Make sure you do not have unsaved data in your browser, in case you (or your OOM killer) need to terminate it.
+It is possible to view dumps in their graphical representation using a web browser. [More information](docs/dump-browser.md)
 
 ### Concrete example of usage
 
