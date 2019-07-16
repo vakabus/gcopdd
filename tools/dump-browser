@@ -301,7 +301,7 @@ STYLESHEET = b'''
 		text-decoration: unset;
 		padding: 0 0.25em;
 	}
-''' + import_module('viewers.common').STYLESHEET
+''' + import_module('viewers.default').STYLESHEET
 
 
 def html_select(name, options, selected, pref, suff):

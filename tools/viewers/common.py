@@ -88,62 +88,6 @@ def css_color(red, saturation, lightness):
 	)
 
 
-STYLESHEET = b'''
-	body {
-		white-space: nowrap;
-	}
-	.here {
-		list-style-type: none;
-	}
-	.here div {
-		position: relative;
-		top: -7em;
-	}
-	.here div:target::before {
-		content: '< here';
-		position: relative;
-		left: -1em;
-		top: 7em;
-		color: red;
-		font-weight: bold;
-	}
-	.mono {
-		font-family: monospace;
-	}
-	.fromto div {
-		display: none;
-	}
-	.fromto:active div, .fromto div:hover {
-		display: block;
-		width: 0;
-		height: 0;
-		position: relative;
-		outline: solid 1px black;
-	}
-	.fromto div a {
-		display: block;
-		background-color: black;
-		width: 3em;
-		height: 1.5em;
-	}
-	.clickable-cells td {
-		cursor: pointer;
-	}
-	.nolink {
-		color: unset;
-		text-decoration: unset;
-		display: block;
-	}
-	form.ctmode-switch fieldset {
-		display: inline-block;
-		margin: 0 1em 1em 0;
-	}
-	table form.ctmode-switch fieldset {
-		margin: 1em;
-	}
-'''
-
-
 def html_ctmode_switch(params):
 	curr_mode = _get_ctmode(params)
 	yield '<form class="ctmode-switch"><fieldset>'
