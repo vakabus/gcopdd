@@ -74,7 +74,7 @@ make build
 
 # collect data into a dumps/ directory by running it on some program
 # command vm behaves just as a java command
-./vm tests/Fibbonaci.java
+./vm tests/Fibonacci.java
 ```
 
 ## Versions of Graal it works on

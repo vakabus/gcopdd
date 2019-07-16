@@ -34,7 +34,7 @@ The file contains first a list of phase numbers referencing phases in `.phasesta
 
 Collects a list of all node types seen during this compilation unit. Outputs just a simple text file with a list of Java classes.
 
-## Node type tracker (`.nodemap`)
+## Node type tracker (`.nodemat`)
 
 Tracks types of nodes across optimization phases. For every phase, we want to know, which types of nodes were there when the phase started and exited. And not only types but also number of nodes.
 
