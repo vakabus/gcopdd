@@ -85,9 +85,9 @@ public final class DumpHelpers {
     }
 
     /**
-     * Constructs name of the file that is to be put in the dumps directory.
+     * Constructs name of the subdirectory that is to be put in the dumps directory.
      *
-     * @return the name without any directories
+     * @return the name of the directory without any parent directories or slashes
      */
     public static final String getReportDirBaseName() {
         return getDateString() + "." + getTestName();
