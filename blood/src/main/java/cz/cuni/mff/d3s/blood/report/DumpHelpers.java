@@ -64,15 +64,13 @@ public final class DumpHelpers {
                 testName.append(arg);
                 testName.append('_');
             }
-        } catch (IOException ex) {
-            System.err.println("Error reading /proc/self/cmdline.");
-            System.err.println("Note that this is UN*X-specific.");
-            System.err.println("Falling back to \"unknown\" (sic).");
-            return "unknown";
+            testName.deleteCharAt(testName.length() - 1); // delete the last underscore ("_")
+        } catch (IOException | StringIndexOutOfBoundsException ex) {
+            System.err.println("Error reading /proc/self/cmdline. Falling back to \"unknown\" (sic).");
+            testName.replace(0, testName.length(), "unknown");
         }
 
-        testName.deleteCharAt(testName.length() - 1); // delete the last underscore ("_")
-        return testName.toString();
+        return String.format(System.getProperty("blood.rename", "%s"), testName);
     }
 
     /**
