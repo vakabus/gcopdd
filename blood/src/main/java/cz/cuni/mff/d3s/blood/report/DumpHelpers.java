@@ -89,10 +89,9 @@ public final class DumpHelpers {
     /**
      * Constructs name of the file that is to be put in the dumps directory.
      *
-     * @param type type of the dumped data, used as suffix
      * @return the name without any directories
      */
-    public static final String getReportDirBaseName(String type) {
+    public static final String getReportDirBaseName() {
         return getDateString() + "." + getTestName();
     }
 
@@ -102,7 +101,7 @@ public final class DumpHelpers {
         }
 
         File dumpDir = new File(DUMPS_DIR_NAME);
-        cachedReportDir = new File(dumpDir, getReportDirBaseName(DUMPS_DIR_NAME));
+        cachedReportDir = new File(dumpDir, getReportDirBaseName());
         cachedReportDir.mkdirs();
         return cachedReportDir;
     }
