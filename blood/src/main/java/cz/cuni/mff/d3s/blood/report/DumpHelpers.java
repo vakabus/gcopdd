@@ -19,9 +19,9 @@ public final class DumpHelpers {
      */
     public static final String[] SUFFIXES = {".java", ".class", ".jar"};
     /**
-     * Name of the dumps directory. Relative to PWD. Without trailing slash.
+     * Default name of the dumps directory. Relative to PWD. Without trailing slash.
      */
-    public static final String DUMPS_DIR_NAME = "dumps";
+    public static final String DEFAULT_DUMPS_DIR_NAME = "dumps";
     private static final boolean ENABLE_DUMP_COMPRESSION = true;
     private static File cachedReportDir = null;
 
@@ -98,7 +98,7 @@ public final class DumpHelpers {
             return cachedReportDir;
         }
 
-        File dumpDir = new File(DUMPS_DIR_NAME);
+        File dumpDir = new File(System.getProperty("blood.dumpsdir", DEFAULT_DUMPS_DIR_NAME));
         cachedReportDir = new File(dumpDir, getReportDirBaseName());
         cachedReportDir.mkdirs();
         return cachedReportDir;
