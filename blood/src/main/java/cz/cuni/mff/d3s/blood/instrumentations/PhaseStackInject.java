@@ -8,14 +8,14 @@ import cz.cuni.mff.d3s.blood.report.Manager;
 import cz.cuni.mff.d3s.blood.tools.phasestack.PhaseStackCollector;
 
 public class PhaseStackInject {
-    @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
+    @Before(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)", order = 1000)
     public static void beforePhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
 
         Manager.get(PhaseStackCollector.class).push(thiz.getClass());
     }
 
-    @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)")
+    @After(marker = BodyMarker.class, scope = "void BasePhase.apply(org.graalvm.compiler.nodes.StructuredGraph, *)", order = 1000)
     public static void afterPhaseRun(DynamicContext di) {
         Object thiz = di.getThis();
 
