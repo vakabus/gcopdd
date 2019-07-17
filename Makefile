@@ -31,7 +31,7 @@ mx/mx:
 	git clone --depth 1 https://github.com/graalvm/mx.git
 
 graal/compiler/mxbuild/dists/jdk11/graal.jar: graal/.git mx/mx
-	cd graal/compiler; ../../mx/mx build; ../../mx/mx ideinit
+	cd graal/compiler; ../../mx/mx build
 	-cd graal/compiler/mxbuild/dists; ln -s -r . jdk11
 	# if you have multiple JVM versions, this will fail
 	# and give you hints how to fix it
