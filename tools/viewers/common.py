@@ -7,7 +7,7 @@ __all__ = [
 	# Reading files
 	'read_classes', 'read_matrix', 'read_depval_matrix',
 	# Matrices
-	'make_matrix', 'matrix_dimensions', 'matrix_add',
+	'make_matrix', 'matrix_dimensions', 'matrix_add', 'matrix_madd',
 	# Mapping matrices
 	'matrix_apply_mapping', 'matrix_apply_mapping_to_rows', 'matrix_apply_mapping_to_columns',
 	# Call tree
@@ -178,6 +178,13 @@ def matrix_add(result, addend):
 	for y, row in enumerate(addend):
 		for x, value in enumerate(row):
 			result[y][x] += value
+
+
+def matrix_madd(result, addend, old_indices_y, old_indices_x, ymapping, xmapping):
+	for y, row in zip(old_indices_y, addend):
+		for x, value in zip(old_indices_x, row):
+			result[ymapping[y]][xmapping[x]] += value
+	return result
 
 
 ######################

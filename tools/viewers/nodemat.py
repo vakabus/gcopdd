@@ -130,8 +130,7 @@ def aggregate(files, open_sibling, params):
 	#     This is the approach taken by this implementation (variable `pending`).
 	# The commented-out version elegantly avoids this problem by using ***magic***.
 	
-	canon = Canon()
-	all_nodes = []
+	all_nodes = {}
 	pending = []
 	
 	for file in files:
@@ -146,10 +145,11 @@ def aggregate(files, open_sibling, params):
 		pending.append((nodes, phases, matrix1, matrix2))
 		
 		for idx, node in enumerate(nodes):
-			nodes[idx] = canon.canonicalize(node)
-		all_nodes = merge(all_nodes, nodes)
-		
-	uniq(all_nodes)
+			(possum, count) = all_nodes.get(node, (0.0, 0))
+			all_nodes[node] = (possum+idx/len(nodes), count+1)
+	
+	# convert to array, sort by average position
+	all_nodes = sorted(all_nodes, key=lambda node: float.__truediv__(*all_nodes[node]))
 	all_nodes_index_of = {node: idx for idx, node in enumerate(all_nodes)}
 	
 	total_matrix1 = make_matrix(phasestack_lines, len(all_nodes), DependencyValue(0, 0, 0))
@@ -160,13 +160,8 @@ def aggregate(files, open_sibling, params):
 		for idx, node in enumerate(nodes):
 			nodes[idx] = all_nodes_index_of[node]
 	
-		matrix1 = matrix_apply_mapping_to_rows(phases, matrix1, phasestack_lines, mapping, DependencyValue(0, 0, 0))
-		matrix1 = matrix_apply_mapping_to_columns(nodeids, matrix1, len(all_nodes), nodes, DependencyValue(0, 0, 0))
-		matrix2 = matrix_apply_mapping_to_rows(phases, matrix2, phasestack_lines, mapping, DependencyValue(0, 0, 0))
-		matrix2 = matrix_apply_mapping_to_columns(nodeids, matrix2, len(all_nodes), nodes, DependencyValue(0, 0, 0))
-		
-		matrix_add(total_matrix1, matrix1)
-		matrix_add(total_matrix2, matrix2)
+		matrix_madd(total_matrix1, matrix1, phases, nodeids, mapping, nodes)
+		matrix_madd(total_matrix2, matrix2, phases, nodeids, mapping, nodes)
 	
 	del pending # leave it to garbage-collector as soon as possible
 
