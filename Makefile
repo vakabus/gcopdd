@@ -32,9 +32,12 @@ mx/mx:
 
 graal/compiler/mxbuild/dists/jdk11/graal.jar: graal/.git mx/mx
 	cd graal/compiler; ../../mx/mx build
+	# if you have multiple JVM versions, the above fails
+	# and gives you hints how to fix it.
 	-cd graal/compiler/mxbuild/dists; ln -s -r . jdk11
-	# if you have multiple JVM versions, this will fail
-	# and give you hints how to fix it
+	# `mx` may have decided `graal.jar` is up to date.
+	# touch it so that `make` knows next time.
+	touch -c graal/compiler/mxbuild/dists/jdk11/graal.jar
 	
 graal.instrumented.jar: graal/compiler/mxbuild/dists/jdk11/graal.jar PLuG/dist/PLuG.jar blood/build/libs/blood-all.jar
 	PLuG/plug.sh blood/build/libs/blood-all.jar --in graal/compiler/mxbuild/dists/jdk11/graal.jar --out graal.instrumented.jar
