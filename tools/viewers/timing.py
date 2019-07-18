@@ -23,6 +23,7 @@ def pretty_duration(d):
 
 
 def html_aggregate(total_duration, duration_mean, duration_variance, duration_geometric_mean, events):
+	yield 'Valid entries: <b>%s</b><br>' % len(events)
 	yield 'Total duration: <b>%s</b><br>' % pretty_duration(total_duration)
 	yield 'Duration mean: <b>%s</b> (&sigma; = <b>%s</b>)<br>' % (pretty_duration(duration_mean), pretty_duration(sqrt(duration_variance)))
 	yield 'Duration variance (&sigma;&sup2;): <b>%s&sup2;</b><br>' % pretty_duration(duration_variance)
@@ -44,7 +45,10 @@ def aggregate(files, open_sibling, params):
 	events = []
 	for timing_f, request_f in zip(files, open_sibling('request')):
 		with request_f:
-			started, duration = stripped_lines_close(timing_f)
+			try:
+				started, duration = stripped_lines_close(timing_f)
+			except ValueError:
+				continue
 			event = CompilationEvent(
 				started = datetime.strptime(started, '%Y-%m-%dT%H:%M:%S.%fZ'),
 				duration = int(duration),
