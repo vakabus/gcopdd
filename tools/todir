@@ -1,0 +1,59 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import itertools
+
+
+#### Parse arguments
+
+if len(sys.argv) != 2:
+	print(f"Usage: {sys.argv[0]} <TARGET_DIR>", file=sys.stderr)
+	print(f"  For each filename on stdin", file=sys.stderr)
+	print(f"  creates hardlink in the target directory", file=sys.stderr)
+	exit(1)
+
+
+#### Initialize
+
+try:
+	os.mkdir(sys.argv[1])
+except IOError as e:
+	print("todir: could not create target directory:", e, file=sys.stderr)
+	exit(1)
+
+try:
+	targetdir = os.open(sys.argv[1], 0)
+except IOError as e:
+	print("todir: could not open target directory:", e, file=sys.stderr)
+	exit(1)
+
+
+#### Link files
+
+error = False # did at least one file fail?
+
+try:
+	for dstnum in itertools.count():
+		src = input()
+		dst = f'{dstnum:08}'
+		try:
+			os.link(src, dst, dst_dir_fd=targetdir)
+		except IOError as e:
+			# not found, permissions, ...
+			print("todir:", e, file=sys.stderr)
+			error = True
+except EOFError:
+	# thrown by input() - nothing more to read
+	pass
+except KeyboardInterrupt:
+	print("^C", file=sys.stderr)
+	exit(130)
+
+
+#### Status code
+
+if error:
+	exit(1)
+
+# else exit normally (0)

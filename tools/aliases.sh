@@ -30,7 +30,7 @@ if [[ $# != 0 ]]; then
 	return 1
 fi
 
-if declare -F _gcopdd_alias > /dev/null; then
+if [[ -n ${_gcopdd_tools_dir+defined} ]]; then
 	echo "Aliases already defined." >&2
 	return 1
 fi
@@ -38,22 +38,32 @@ fi
 # Obtain absolute path of directory containing this file.
 _gcopdd_tools_dir="$(readlink -f "$(dirname "$BASH_SOURCE")")"
 
-_gcopdd_alias() {
-	if type $1 2>/dev/null; then
-		echo "Choose an alias for '$2'." >&2
-		echo "Type '$1' to confirm hiding your '$1' with '$2'." >&2
-		echo "Leave blank to not define an alias." >&2
-		local _gcopdd_new_alias
-		read -ep "New alias: " _gcopdd_new_alias
-		[[ -n "$_gcopdd_new_alias" ]] && alias $_gcopdd_new_alias=$2
+alias evtgrep="$_gcopdd_tools_dir/evtgrep"
+alias evtinfo="$_gcopdd_tools_dir/evtinfo"
+alias ntar="$_gcopdd_tools_dir/ntar.py"
+alias todir="$_gcopdd_tools_dir/todir"
+
+alias phasestack="$_gcopdd_tools_dir/phasestack.py"
+alias depmat="$_gcopdd_tools_dir/depmat.py"
+
+# vm is not in tools dir, but one level higher
+alias vm="$(dirname "$_gcopdd_tools_dir")/vm"
+
+_gcopdd_complete() {
+	# $1 .. command
+	# $2 .. current word
+	# $COMP_CWORD .. current word index
+	if [[ $COMP_CWORD != 1 ]]
+	then
+		COMPREPLY=($(compgen -f "$2"))
 	else
-		alias $1=$2
+		case $1 in
+			(ntar) COMPREPLY=($(compgen -W "help list dump hexdump xf" "$2"));;
+			(phasestack) COMPREPLY=($(compgen -W "TODO" "$2"));;
+			(depmat) COMPREPLY=($(compgen -W "help html csv aggregate diff expand" "$2"));;
+		esac
 	fi
 }
 
-_gcopdd_alias match      "$_gcopdd_tools_dir/match.py"
-_gcopdd_alias phasestack "$_gcopdd_tools_dir/phasestack.py"
-_gcopdd_alias depmat     "$_gcopdd_tools_dir/depmat.py"
-
-# vm is not in tools dir, but one level higher
-_gcopdd_alias vm         "$(dirname "$_gcopdd_tools_dir")/vm"
+complete evtgrep # disable file completions
+complete -o filenames -F _gcopdd_complete ntar phasestack depmat

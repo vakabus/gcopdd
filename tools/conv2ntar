@@ -1,0 +1,72 @@
+#!/usr/bin/python3
+
+import sys
+import os
+from os import listdir
+import gzip
+
+from ntar import NtarFile
+
+
+dumps_dir = os.path.join(sys.path[0], '../dumps') # relative to this script
+dumps_dir_old = dumps_dir + '.old'
+
+os.rename(dumps_dir, dumps_dir_old)
+os.mkdir(dumps_dir)
+
+
+### UTILITY METHOD ###
+
+def listdir_subdirs(dirname):
+	return [basename for basename in listdir(dirname) if os.path.isdir(os.path.join(dirname, basename))]
+
+
+### PROGRESS REPORTING ###
+
+total_count = sum(
+	len(listdir(os.path.join(dumps_dir_old, dump_name)))
+		for dump_name in listdir_subdirs(dumps_dir_old)
+)
+
+processed_count = 0
+
+def increment_and_show_progress():
+	global processed_count
+	processed_count += 1
+	percentage = int(1000 * processed_count / total_count) / 10
+	print(f'{processed_count} / {total_count} entries ({percentage}%)', end='\r', flush=True)
+
+
+####
+
+def convert_dump(from_dir, to_dir):
+	for entry_name in listdir(from_dir):
+		# parse input filename
+		event, entry_type, gz = entry_name.split('.')
+		# shortcut (with all relevant versions of blood this was true)
+		if gz != 'gz':
+			print(f'WARNING: skipping file {os.path.join(from_dir, entry_name)} - expected .gz suffix')
+			increment_and_show_progress()
+			continue
+		# absolute path of input (e.g. /foo/gcopdd/dumps.old/bar/0123456789abcdef.depmat.gz)
+		from_file = os.path.join(from_dir, entry_name)
+		# absolute path of output (e.g. /foo/gcopdd/dumps/bar/0123456789abcdef) - notice that many-to-one mapping of filenames (this is why we use ntar)
+		to_file = os.path.join(to_dir, event)
+		# read and decompress input
+		with gzip.open(from_file, 'rb') as file:
+			entry_content = file.read()
+		# compress and append to output
+		with NtarFile(open(to_file, 'ab')) as nf:
+			nf[entry_type] = entry_content
+		# make the user happy
+		increment_and_show_progress()
+
+def convert_all():
+	for dump_name in listdir_subdirs(dumps_dir_old):
+		from_dir = os.path.join(dumps_dir_old, dump_name)
+		to_dir = os.path.join(dumps_dir, dump_name)
+		os.mkdir(to_dir)
+		convert_dump(from_dir, to_dir)
+
+convert_all()
+print()

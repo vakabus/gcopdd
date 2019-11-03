@@ -5,7 +5,7 @@ from getopt import gnu_getopt, GetoptError
 from re import compile as Regex
 from collections import namedtuple
 
-from libgcopdd import Event, UserError, args_to_events, n_args_to_n_events, open_dump_entry, create_temp
+from libgcopdd import UserError, AnonymousEvent, recursive_events_list, expect_n_events_in_args, create_output_event
 import phasestack
 
 INTEGER_PATTERN = Regex(r'\d+')
@@ -13,41 +13,28 @@ DepMat = namedtuple('DepMat', 'size, mapping, data')
 
 ####
 
-def load(event):
-	"""Loads `.depmat` dump entry of given `event`.
-	
-	The `event` contains the dump name and event hash,
-	but not the `.depmat` suffix. Returns a DepMat object.
-	"""
-	with open_dump_entry(event + '.depmat') as file:
-		mapping = []
-		for line in file:
-			if line.isspace():
-				break
-			mapping.append(int(line))
-		size = len(mapping)
-		data = list(map(int, INTEGER_PATTERN.findall(file.read())))
+def deserialize(string):
+	mapping_s, data_s = string.split('\n\n', 1)
+	mapping = list(map(int, mapping_s.split()))
+	size = len(mapping)
+	data = list(map(int, INTEGER_PATTERN.findall(data_s)))
 	assert len(data) == 3*size*size
 	return DepMat(size, mapping, data)
 
-def save(depmat, event):
-	"""Saves `.depmat` dump entry to given `event`.
-	
-	The `event` contains the dump name and event hash,
-	but not the `.depmat` suffix. `depmat` is a DepMat object.
-	"""
-	with open_dump_entry(event + '.depmat', 'wt') as file:
-		rowsize = 3 * depmat.size
-		for value in depmat.mapping or range(depmat.size):
-			file.write(str(value) + '\n')
-		for idx, value in enumerate(depmat.data):
-			if idx % 3:
-				file.write(':' + str(value))
-			elif idx % rowsize:
-				file.write(' ' + str(value))
-			else:
-				file.write('\n' + str(value))
-		file.write('\n')
+def serialize(depmat):
+	size = depmat.size # number of rows / columns
+	r = 6 * size # row size in the context of `data_s_list` (see below)
+	# Allocate array with (6*size*size == 2*len(depmat.data)) elements.
+	# Odd indices contain values, even indices contain delimiters.
+	# Initialize with ':', which is the most common delimiter.
+	# Replace some of the delimiters (and most importantly the values).
+	data_s_list = [':'] * (6*size*size)
+	data_s_list[5::6] = [' '] * (size*size)
+	data_s_list[r-1::r] = ['\n'] * (size)
+	data_s_list[::2] = map(str, depmat.data)
+	data_s = ''.join(data_s_list)
+	mapping_s = '\n'.join(map(str, depmat.mapping or range(depmat.size)))
+	return mapping_s + '\n\n' + data_s
 
 ####
 
@@ -73,35 +60,41 @@ def empty(size):
 
 def html(event):
 	# TODO adapt from `viewers.depmat`
-	print(f'<!doctype html><html><head><title>{event.event_id}.depmat</title></head><body>TODO</body></html>')
+	try:
+		request = event.get_entry('request', str)
+	except KeyError:
+		request = '???'
+	depmat = event.get_entry('depmat', deserialize)
+	print(f'<!doctype html><html><head><title>{request} :: depmat</title></head><body><h1>TODO</h1>{depmat}</body></html>')
 
 def csv(event):
 	# XXX define format
 	print('0,0,0')
 
-def aggregate(events):
-	aggregated_ps, mappings = phasestack.aggregate(events)
-	aggregated_matrix = empty(aggregated_ps.size)
-	for i, event in enumerate(events):
-		matrix = event.get('depmat', load)
-		add_to(aggregated_matrix, change_mapping(matrix, mappings[i]))
-	return aggregated_matrix, aggregated_ps
+def aggregate(events, output_event):
+	size, mappings = phasestack.aggregate(events, output_event)
+	aggregated_matrix = empty(size)
+	for event, mapping in zip(events, mappings):
+		matrix = event.get_entry('depmat', deserialize)
+		add_to(aggregated_matrix, change_mapping(matrix, mapping))
+	output_event.set_entry('depmat', aggregated_matrix, serialize)
 
-def diff(from_, to):
+def diff(from_, to, output_event):
 	# TODO do something useful (currently just lame matrix subtraction)
-	from_depmat = from_.get('depmat', load)
-	from_ps = from_.get('phasestack', phasestack.load)
+	from_depmat = from_.get_entry('depmat', deserialize)
+	from_ps = from_.get_entry('phasestack', phasestack.deserialize)
 	neg_from_depmat = DepMat(from_depmat.size, from_depmat.mapping, [-value for value in from_depmat.data])
-	neg_from = Event(depmat=neg_from_depmat, phasestack=from_ps)
-	return aggregate([neg_from, to])
+	neg_from = AnonymousEvent(depmat=neg_from_depmat, phasestack=from_ps)
+	aggregate([neg_from, to], output_event)
 
-def expand(original_event, new_ps_event):
-	original_matrix = original_event.get('depmat', load)
-	original_ps = original_event.get('phasestack', phasestack.load)
-	new_ps = new_ps_event.get('phasestack', phasestack.load)
+def expand(original_event, new_ps_event, output_event):
+	original_matrix = original_event.get_entry('depmat', deserialize)
+	original_ps = original_event.get_entry('phasestack', phasestack.deserialize)
+	new_ps = new_ps_event.get_entry('phasestack', phasestack.deserialize)
 	mapping = phasestack.get_mapping(original_ps, new_ps)
 	new_matrix = change_mapping(original_matrix, mapping)
-	return new_matrix, new_ps
+	output_event.set_entry('phasestack', new_ps, phasestack.serialize)
+	output_event.set_entry('depmat', new_matrix, serialize)
 
 ####
 
@@ -127,16 +120,16 @@ def main():
 		print('  depmat help')
 		print('  depmat html [--tty] <EVENT>')
 		print('  depmat csv [--tty] <EVENT>')
-		print('  depmat aggregate <EVENT LIST ...> [--as <TARGET>]')
-		print('  depmat diff <FROM_EVENT> <TO_EVENT> [--as <TARGET>]')
-		print('  depmat expand <ORIGINAL> <NEW_PHASESTACK> [--as <TARGET>]')
+		print('  depmat aggregate <EVENT LIST ...>')
+		print('  depmat diff <FROM_EVENT> <TO_EVENT>')
+		print('  depmat expand <ORIGINAL> <NEW_PHASESTACK>')
 	
 	elif function == 'html':
 		scan_options('tty')
 		tty = '--tty' in opts
 		if not tty and sys.stdout.isatty():
 			raise UserError('Refusing to print to terminal. Redirect output or use --tty')
-		(event,) = n_args_to_n_events(1, args, 'Usage: depmat html [--tty] <EVENT>')
+		(event,) = expect_n_events_in_args(1, args, 'Usage: depmat html [--tty] <EVENT>')
 		html(event)
 	
 	elif function == 'csv':
@@ -144,31 +137,22 @@ def main():
 		tty = '--tty' in opts
 		if not tty and sys.stdout.isatty():
 			raise UserError('Refusing to print to terminal. Redirect output or use --tty')
-		(event,) = n_args_to_n_events(1, args, 'Usage: depmat csv [--tty] <EVENT>')
+		(event,) = expect_n_events_in_args(1, args, 'Usage: depmat csv [--tty] <EVENT>')
 		csv(event)
 	
 	elif function == 'aggregate':
-		scan_options('as=')
-		target = create_temp(opts.get('--as'))
-		depmat, ps = aggregate(args_to_events(args))
-		save(depmat, target)
-		phasestack.save(ps, target)
+		#scan_options('')
+		aggregate(recursive_events_list(args), create_output_event())
 	
 	elif function == 'diff':
-		scan_options('as=')
-		target = create_temp(opts.get('--as'))
-		(from_event, to_event) = n_args_to_n_events(2, args, 'Usage: depmat diff <FROM_EVENT> <TO_EVENT> [--as <TARGET>]')
-		depmat, ps = diff(from_event, to_event)
-		save(depmat, target)
-		phasestack.save(ps, target)
+		#scan_options('')
+		(from_event, to_event) = expect_n_events_in_args(2, args, 'Usage: depmat diff <FROM_EVENT> <TO_EVENT>')
+		diff(from_event, to_event, create_output_event())
 	
 	elif function == 'expand':
-		scan_options('as=')
-		target = create_temp(opts.get('--as'))
-		original, new_phasestack = n_args_to_n_events(2, args, 'Usage: depmat expand <ORIGINAL> <NEW_PHASESTACK> [--as <TARGET>]')
-		depmat, ps = expand(original, new_phasestack)
-		save(depmat, target)
-		phasestack.save(ps, target)
+		#scan_options('')
+		(original, new_phasestack) = expect_n_events_in_args(2, args, 'Usage: depmat expand <ORIGINAL> <NEW_PHASESTACK>')
+		expand(original, new_phasestack, create_output_event())
 	
 	else:
 		raise UserError(f'No such function: {function}')

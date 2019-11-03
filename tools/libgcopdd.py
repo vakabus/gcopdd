@@ -1,104 +1,137 @@
 import sys
 import os
-from os import path
-import gzip
+import itertools
+from functools import lru_cache
+
+from ntar import NtarFile
 
 
-class Event:
-	def __init__(self, event_id=None, **loaded_entries):
-		self.event_id = event_id
-		self.loaded_entries = loaded_entries
-	
-	def get(self, entry_type, load):
-		result = self.loaded_entries.get(entry_type)
-		if result is None:
-			self.loaded_entries[entry_type] = result = load(self.event_id)
-		return result
+####
 
 
 class UserError(Exception):
+	"""
+	Signalizes an error in user input.
+	"""
 	def __init__(self, msg):
 		self.msg = msg
 
 
-def args_to_events(args):
-	def inner():
-		for arg in args:
-			if path.isdir(arg):
-				# this is a dump
-				for basename in os.listdir(arg):
-					event_id, entry_type, *_ = basename.split('.')
-					if entry_type == 'request':
-						yield arg + '/' + event_id
-			elif path.exists(arg):
-				# this is an event list
-				with open(arg) as file:
-					for line in file:
-						line = line.split('#')[0].strip()
-						if line != '':
-							yield line
-			else:
-				# this is probably a single event
-				yield arg
-	return list(map(Event, inner()))
+####
 
 
-def n_args_to_n_events(n, args, msg):
+class Event:
+	"""
+	An object that represents a compilation event.
+	"""
+	def get_entry(self, entry_type, deserialize_fn):
+		raise NotImplementedError('Abstract method')
+	
+	def set_entry(self, entry_type, entry_content, serialize_fn):
+		raise NotImplementedError('Abstract method')
+
+
+class AnonymousEvent(Event):
+	"""
+	An object that represents a compilation event.
+	The object is ONLY stored in the memory of the process.
+	"""
+	def __init__(self, **entries):
+		self.entries = entries
+	
+	def get_entry(self, entry_type, deserialize_fn):
+		return self.entries[entry_type]
+	
+	def set_entry(self, entry_type, entry_content, serialize_fn):
+		self.entries[entry_type] = entry_content
+	
+	def __repr__(self):
+		kwargs_str = ', '.join(f'{key}={value!r}' for key, value in self.entries.items())
+		return f'AnonymousEvent({kwargs_str})'
+
+
+class NtarEvent(Event):
+	"""
+	An object that represents a compilation event.
+	The object is backed by a Ntar file on filesystem.
+	"""
+	def __init__(self, ntar_file):
+		self.ntar_file = ntar_file
+	
+	def get_entry(self, entry_type, deserialize_fn):
+		return deserialize_fn(str(self.ntar_file[entry_type], 'utf-8'))
+	
+	def set_entry(self, entry_type, entry_content, serialize_fn):
+		self.ntar_file[entry_type] = bytes(serialize_fn(entry_content), 'utf-8')
+	
+	def __repr__(self):
+		return f'NtarEvent({self.ntar_file!r})'
+
+
+def create_output_event():
+	"""
+	Creates `Event` object which on adding entries
+	writes to stdout (if not a tty), or a newly
+	created file (if stdout is a tty).
+	"""
+	if sys.stdout.isatty():
+		for i in itertools.count():
+			try:
+				filename = f'temp{i}'
+				file = open(filename, 'xb')
+				print(f'Refusing to print to terminal. Output file is {filename!r}.')
+				return NtarEvent(NtarFile(file))
+			except FileExistsError:
+				pass
+	else:
+		return NtarEvent(NtarFile(sys.stdout.buffer))
+
+
+@lru_cache(None)
+def load_event(filename, mode='r'):
+	return NtarEvent(NtarFile(open(filename, mode + 'b')))
+
+
+####
+
+
+def listdir2(dirname):
+	"""Like os.listdir, but returns iterator, not list, and it contains paths, not names."""
+	if not dirname.endswith('/'):
+		dirname += '/'
+	# [dirname + basename for basename in os.listdir(dirname)]
+	return map(dirname.__add__, os.listdir(dirname))
+
+def walk2(node):
+	"""Returns an iterator of paths to regular files in a directory (recursively)."""
+	if os.path.isdir(node):
+		# [leaf for child in listdir2(node) for leaf in walk2(child)]
+		return itertools.chain(*map(walk2, listdir2(node)))
+	else:
+		return [node]
+
+
+def recursive_regular_files_list(roots):
+	"""Returns a list of paths to regular files in each directory in `roots` list (recursively)."""
+	# [leaf for root in roots for leaf in walk2(root)]
+	return list(itertools.chain(*map(walk2, roots)))
+
+def recursive_events_list(roots):
+	"""Returns a list of `Event`s corresponding to regular files in each directory in `roots` list (recursively)."""
+	# [load_event(leaf) for root in roots for leaf in walk2(root)]
+	return list(map(load_event, itertools.chain(*map(walk2, roots))))
+
+
+def expect_n_events_in_args(n, args, msg):
+	"""Checks number of `args`, returns a list of `Event`s corresponding to elements of `args`."""
 	if len(args) != n:
 		raise UserError(msg)
 	events = [...] * n
 	for idx, arg in enumerate(args):
-		event1 = args_to_events([arg])
-		if len(event1) == 0:
-			raise UserError(f'{arg!r} is empty!')
-		if len(event1) > 1:
-			os.xxxx = event1
-			raise UserError(f'{arg!r} contains multiple events (one expected)')
-		(events[idx],) = event1
+		try:
+			events[idx] = load_event(arg)
+		except IsADirectoryError as e:
+			raise UserError(f'{e} (one event expected)')
+		except IOError as e:
+			raise UserError(f'{e}')
 	return events
-
-
-ENCODINGS = {'.gz': gzip.open, '': open}
-
-
-def open_dump_entry(entry_name, mode='rt'):
-	# XXX should the program look for dumps in CWD or in the `dumps` directory (regardless of CWD)?
-	# Arguments for `dumps`:
-	#  - typical use-case -- user does not have to `cd dumps`
-	#  - consistent with other tools -- both `vm` and `dump-browser` always locate the `dumps` directory
-	# Arguments for CWD:
-	#  - consistent with unix conventions (note that unlike `vm` and `dump-browser`,
-	#    `depmat` does take `dumps`-relative paths on commandline)
-	#  - allows TAB-completion
-	#
-	# Until this is resolved, we only allow the case where both alternatives converge:
-	assert os.getcwd().endswith('/dumps'), 'Please cd into dumps directory'
-	
-	# Look for the file using known filename extensions.
-	for ext in ENCODINGS:
-		filename = entry_name + ext
-		if path.exists(filename):
-			# It exists! Open it and return it.
-			return ENCODINGS[ext](filename, mode)
-	# No appropriate file exists. We use the default (uncompressed, without extension).
-	# If we open for writing, this will be ok. If we open for reading, this will throw
-	# FileNotFoundError, which is appropriate.
-	return open(entry_name, mode)
-
-
-def create_temp(event_id=None, info=sys.argv, generated_name_callback=print):
-	if event_id is None:
-		i = 0
-		while True:
-			try:
-				event_id = f'temp{i}'
-				with open(event_id + '.info', 'x') as file:
-					print(info, file=file)
-				generated_name_callback(event_id)
-				break
-			except FileExistsError:
-				i += 1
-	else:
-		with open(event_id + '.info', 'a') as file:
-			print(info, file=file)
-	return event_id

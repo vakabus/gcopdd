@@ -4,24 +4,20 @@ import sys
 from getopt import gnu_getopt, GetoptError
 from collections import namedtuple
 
-from libgcopdd import Event, UserError, open_dump_entry
+from libgcopdd import UserError
 
 PhaseStack = namedtuple('PhaseStack', 'size, data')
 
 ####
 
-def load(event):
-	with open_dump_entry(event + '.phasestack') as file:
-		# Use `sys.intern` so that `viewers.common`
-		# functions can use `is` instead of `==`.
-		# TODO: remove this after removing
-		#       `viewers.common` imports.
-		data = list(map(sys.intern, map(str.strip, file)))
+def deserialize(string):
+	# Use `sys.intern` so that `viewers.common` functions can use `is` instead of `==`.
+	# TODO: remove this after removing `viewers.common` imports.
+	data = list(map(sys.intern, string.split('\n')))
 	return PhaseStack(len(data), data)
 
-def save(ps, event):
-	with open_dump_entry(event + '.phasestack', 'wt') as file:
-		file.write('\n'.join(ps.data) + '\n')
+def serialize(ps):
+	return '\n'.join(ps.data)
 
 ####
 
@@ -35,12 +31,13 @@ def get_mapping(single, aggregated):
 
 ####
 
-def aggregate(events):
+def aggregate(events, output_event):
 	# TODO adapt from viewers.common
 	# please do not read this
 	from viewers.common import aggregate_phasestacks as deprecated
-	m, r = deprecated([event.get('phasestack', load).data for event in events], {'ctmode': 'full'})
-	return PhaseStack(len(r), r), m
+	m, r = deprecated([event.get_entry('phasestack', deserialize).data for event in events], {'ctmode': 'full'})
+	output_event.set_entry('phasestack', PhaseStack(len(r), r), serialize)
+	return len(r), m
 
 ####
 

@@ -16,7 +16,7 @@ if count $argv > /dev/null
 	exit 1
 end
 
-if functions -q _gcopdd_alias
+if set -q _gcopdd_tools_dir
 	echo "Aliases already defined." >&2
 	exit 1
 end
@@ -24,21 +24,31 @@ end
 # Obtain absolute path of directory containing this file.
 set _gcopdd_tools_dir (readlink -f (dirname (status filename)))
 
-function _gcopdd_alias
-	if type $argv[1] 2>/dev/null
-		echo "Choose an alias for '$argv[2]'." >&2
-		echo "Type '$argv[1]' to confirm hiding your '$argv[1]' with '$argv[2]'." >&2
-		echo "Leave blank to not define an alias." >&2
-		read -lP "New alias: " _gcopdd_new_alias
-		string length -q $_gcopdd_new_alias; and alias $_gcopdd_new_alias $argv[2]
-	else
-		alias $argv
+alias evtgrep $_gcopdd_tools_dir/evtgrep
+alias evtinfo $_gcopdd_tools_dir/evtinfo
+alias ntar $_gcopdd_tools_dir/ntar.py
+alias todir $_gcopdd_tools_dir/todir
+
+alias phasestack $_gcopdd_tools_dir/phasestack.py
+alias depmat $_gcopdd_tools_dir/depmat.py
+
+# vm is not in tools dir, but one level higher
+alias vm (dirname $_gcopdd_tools_dir)/vm
+
+function _gcopdd_complete_cond
+	# this function is an approximation of
+	# "user is trying to complete the first argument"
+	switch (count (commandline -o))
+		case 1
+			true
+		case 2
+			string length (commandline -t)
+		case '*'
+			false
 	end
 end
 
-_gcopdd_alias match      $_gcopdd_tools_dir/match.py
-_gcopdd_alias phasestack $_gcopdd_tools_dir/phasestack.py
-_gcopdd_alias depmat     $_gcopdd_tools_dir/depmat.py
-
-# vm is not in tools dir, but one level higher
-_gcopdd_alias vm         (dirname $_gcopdd_tools_dir)/vm
+complete -c evtgrep -f
+complete -n _gcopdd_complete_cond -c ntar -a 'help list dump hexdump xf' -f
+complete -n _gcopdd_complete_cond -c phasestack -a 'TODO' -f
+complete -n _gcopdd_complete_cond -c depmat -a 'help html csv aggregate diff expand' -f
