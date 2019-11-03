@@ -5,7 +5,7 @@ from getopt import gnu_getopt, GetoptError
 from re import compile as Regex
 from collections import namedtuple
 
-from libgcopdd import UserError, AnonymousEvent, recursive_events_list, expect_n_events_in_args, create_output_event
+from libgcopdd import UserError, AnonymousEvent, args_or_stdin_to_events_list, expect_n_events_in_args, create_output_event, create_output_text_file
 import phasestack
 
 INTEGER_PATTERN = Regex(r'\d+')
@@ -65,11 +65,11 @@ def html(event):
 	except KeyError:
 		request = '???'
 	depmat = event.get_entry('depmat', deserialize)
-	print(f'<!doctype html><html><head><title>{request} :: depmat</title></head><body><h1>TODO</h1>{depmat}</body></html>')
+	return f'<!doctype html><html><head><title>{request} :: depmat</title></head><body><h1>TODO</h1>{depmat}</body></html>\n'
 
 def csv(event):
 	# XXX define format
-	print('0,0,0')
+	return '0,0,0\n'
 
 def aggregate(events, output_event):
 	size, mappings = phasestack.aggregate(events, output_event)
@@ -118,31 +118,25 @@ def main():
 	if function in ('help', 'usage'):
 		print('Usage:')
 		print('  depmat help')
-		print('  depmat html [--tty] <EVENT>')
-		print('  depmat csv [--tty] <EVENT>')
-		print('  depmat aggregate <EVENT LIST ...>')
+		print('  depmat html [<EVENT>]')
+		print('  depmat csv [<EVENT>]')
+		print('  depmat aggregate [<EVENT LIST ...>]')
 		print('  depmat diff <FROM_EVENT> <TO_EVENT>')
 		print('  depmat expand <ORIGINAL> <NEW_PHASESTACK>')
 	
 	elif function == 'html':
-		scan_options('tty')
-		tty = '--tty' in opts
-		if not tty and sys.stdout.isatty():
-			raise UserError('Refusing to print to terminal. Redirect output or use --tty')
-		(event,) = expect_n_events_in_args(1, args, 'Usage: depmat html [--tty] <EVENT>')
-		html(event)
+		#scan_options('')
+		(event,) = expect_n_events_in_args(1, args or '-', 'Usage: depmat html [<EVENT>]')
+		create_output_text_file('.html', html(event))
 	
 	elif function == 'csv':
-		scan_options('tty')
-		tty = '--tty' in opts
-		if not tty and sys.stdout.isatty():
-			raise UserError('Refusing to print to terminal. Redirect output or use --tty')
-		(event,) = expect_n_events_in_args(1, args, 'Usage: depmat csv [--tty] <EVENT>')
-		csv(event)
+		#scan_options('')
+		(event,) = expect_n_events_in_args(1, args or '-', 'Usage: depmat csv [<EVENT>]')
+		create_output_text_file('.csv', csv(event))
 	
 	elif function == 'aggregate':
 		#scan_options('')
-		aggregate(recursive_events_list(args), create_output_event())
+		aggregate(args_or_stdin_to_events_list(args), create_output_event())
 	
 	elif function == 'diff':
 		#scan_options('')
@@ -155,7 +149,7 @@ def main():
 		expand(original, new_phasestack, create_output_event())
 	
 	else:
-		raise UserError(f'No such function: {function}')
+		raise UserError(f'No such function: {function!r}')
 
 if __name__ == '__main__':
 	try:

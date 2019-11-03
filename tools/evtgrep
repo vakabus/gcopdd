@@ -41,7 +41,8 @@ except EOFError:
 	# thrown by input() - nothing more to read
 	pass
 except KeyboardInterrupt:
-	print("^C", file=sys.stderr)
+	if sys.stdin.isatty():
+		print(file=sys.stderr) # newline after "^C"
 	exit(130)
 
 

@@ -9,7 +9,8 @@ import os
 
 
 class NtarException(Exception):
-	pass
+	def __init__(self, msg):
+		self.msg = msg
 
 
 class NtarFile:
@@ -94,43 +95,58 @@ def append_entry(file, entry_name, entry_content):
 	append_sized_bytes(file, entry_content)
 
 
+def auto_open_input_file(args, msg):
+	if len(args) == 0:
+		arg = '-'
+	elif len(args) == 1:
+		arg = args[0]
+	else:
+		raise NtarException(msg)
+	##
+	if arg == '-':
+		if sys.stdin.isatty():
+			raise NtarException('Refusing to read event from tty (specify filename in arguments or redirect stdin)')
+		return NtarFile(sys.stdin.buffer)
+	else:
+		return NtarFile(open(arg, 'rb'))
+
+def extract(ntar_file, dir_name):
+	os.mkdir(dir_name)
+	for entry_name, entry_content in ntar_file.items():
+		entry_name = entry_name.replace('/', '_')
+		if entry_name.startswith('.'):
+			entry_name = '_' + entry_name
+		with open(os.path.join(dir_name, entry_name), 'wb') as file:
+			file.write(entry_content)
+
 def main():
 	try:
 		[_script_name, function, *args] = sys.argv
 	except ValueError:
-		print('Usage: depmat <FUNCTION> [<ARGS> ...]', file=sys.stderr)
-		return 1
+		raise NtarException('Usage: depmat <FUNCTION> [<ARGS> ...]')
 	function = function.lstrip('-')
 	
 	if function in ('help', 'usage'):
 		print('Usage:')
 		print('  ntar help')
-		print('  ntar list <FILE>')
-		print('  ntar dump <FILE>')
-		print('  ntar hexdump <FILE>')
+		print('  ntar list [<FILE>]')
+		print('  ntar dump [<FILE>]')
+		print('  ntar hexdump [<FILE>]')
 		print('  ntar xf <FILE> <DIR>')
+		print('  ntar x <DIR>')
 	
 	elif function == 'list':
-		if len(args) != 1:
-			print('Usage: ntar list <FILE>', file=sys.stderr)
-			return 1
-		for entry_name, entry_content in NtarFile(open(args[0], 'rb')).items():
+		for entry_name, entry_content in auto_open_input_file(args, 'Usage: ntar list [<FILE>]').items():
 			print(f'{entry_name:15} {len(entry_content)}')
 	
 	elif function == 'dump':
-		if len(args) != 1:
-			print('Usage: ntar dump <FILE>', file=sys.stderr)
-			return 1
-		for entry_name, entry_content in NtarFile(open(args[0], 'rb')).items():
+		for entry_name, entry_content in auto_open_input_file(args, 'Usage: ntar dump [<FILE>]').items():
 			print(f'=== {entry_name} ===')
 			sys.stdout.buffer.write(entry_content)
 			print()
 	
 	elif function == 'hexdump':
-		if len(args) != 1:
-			print('Usage: ntar hexdump <FILE>', file=sys.stderr)
-			return 1
-		for entry_name, entry_content in NtarFile(open(args[0], 'rb')).items():
+		for entry_name, entry_content in auto_open_input_file(args, 'Usage: ntar hexdump [<FILE>]').items():
 			print(f'=== {entry_name} ===')
 			for offset in range(0, len(entry_content), 16):
 				chunk = entry_content[offset : offset+16]
@@ -141,24 +157,26 @@ def main():
 	
 	elif function == 'xf':
 		if len(args) != 2:
-			print('Usage: ntar xf <FILE> <DIR>', file=sys.stderr)
-			return 1
+			raise NtarException('Usage: ntar xf <FILE> <DIR>')
 		dir_name = args[1]
-		os.mkdir(dir_name)
-		for entry_name, entry_content in NtarFile(open(args[0], 'rb')).items():
-			entry_name = entry_name.replace('/', '_')
-			if entry_name.startswith('.'):
-				entry_name = '_' + entry_name
-			with open(os.path.join(dir_name, entry_name), 'wb') as file:
-				file.write(entry_content)
+		extract(auto_open_input_file([args[0]], None), dir_name)
+	
+	elif function == 'x':
+		if len(args) != 1:
+			raise NtarException('Usage: ntar x <DIR>')
+		dir_name = args[0]
+		extract(auto_open_input_file(['-'], None), dir_name)
 	
 	elif function == 'fm':
 		program = os.path.join(sys.path[0], './ntar-fm')
 		os.execv(program, [program] + args)
 	
 	else:
-		print('ntar: No such function:', function, file=sys.stderr)
-		return 1
+		raise NtarException('ntar: No such function: {function!r}')
 
 if __name__ == '__main__':
-	main()
+	try:
+		main()
+	except NtarException as e:
+		print(e.msg, file=sys.stderr)
+		exit(1)
