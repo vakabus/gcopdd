@@ -3,11 +3,9 @@ package cz.cuni.mff.d3s.blood.report;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * Utility methods for dumping.
@@ -22,7 +20,6 @@ public final class DumpHelpers {
      * Default name of the dumps directory. Relative to PWD. Without trailing slash.
      */
     public static final String DEFAULT_DUMPS_DIR_NAME = "dumps";
-    private static final boolean ENABLE_DUMP_COMPRESSION = true;
     private static File cachedReportDir = null;
 
     /**
@@ -104,21 +101,14 @@ public final class DumpHelpers {
         return cachedReportDir;
     }
 
-    public static final OutputStream createDumpFile(File reportDir, String dumpType, String id) throws IOException {
-        if (ENABLE_DUMP_COMPRESSION)
-            dumpType = dumpType + ".gz";
-
-        File dumpFile = new File(getReportDir(), id + "." + dumpType);
+    public static final NtarOutputStream createDumpFile(File reportDir, String id) throws IOException {
+        File dumpFile = new File(reportDir, id);
 
         // make sure the filename is available
         if (!dumpFile.createNewFile()) {
             throw new RuntimeException("File name is not available: " + dumpFile.getPath());
         }
 
-        if (ENABLE_DUMP_COMPRESSION) {
-            return new GZIPOutputStream(new FileOutputStream(dumpFile));
-        } else {
-            return new FileOutputStream(dumpFile);
-        }
+        return new NtarOutputStream(new FileOutputStream(dumpFile));
     }
 }

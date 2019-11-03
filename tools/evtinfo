@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+
+import sys
+import re
+
+from ntar import NtarFile, NtarException
+
+
+#### For one file
+
+def print_event_info(filename):
+	try:
+		nf = NtarFile(open(filename, 'rb'))
+		request = str(NtarFile(open(filename, 'rb')).get('request', b''), 'utf-8').strip()
+		print(filename, ','.join(sorted(nf.keys())), request)
+		return True
+	except (IOError, NtarException, UnicodeDecodeError) as e:
+		print("evtinfo:", e, file=sys.stderr)
+		return False
+
+#### Use arguments
+
+if len(sys.argv) >= 2:
+	if all(map(print_event_info, sys.argv[1:])):
+		exit(0)
+	else:
+		exit(1)
+
+
+#### Use stdin
+
+error = False # did at least one file fail?
+
+try:
+	while True:
+		if not print_event_info(input()):
+			error = True
+except EOFError:
+	# thrown by input() - nothing more to read
+	pass
+except KeyboardInterrupt:
+	if sys.stdin.isatty():
+		print(file=sys.stderr) # newline after "^C"
+	exit(130)
+
+
+#### Status code
+
+if error:
+	exit(1)
+
+# else exit normally (0)

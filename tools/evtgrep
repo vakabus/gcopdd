@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+
+import sys
+import re
+
+from ntar import NtarFile, NtarException
+
+
+#### Parse arguments
+
+if len(sys.argv) != 2:
+	print(f"Usage: {sys.argv[0]} <REGEX>", file=sys.stderr)
+	exit(2)
+
+try:
+	pattern = re.compile(sys.argv[1])
+except re.error as e:
+	print("evtgrep: regex error:", e, file=sys.stderr)
+	exit(2)
+
+
+#### Filter files
+
+found = False # did we match at least once?
+error = False # did at least one file fail?
+
+try:
+	while True:
+		filename = input()
+		try:
+			request = str(NtarFile(open(filename, 'rb')).get('request', b''), 'utf-8').strip()
+			if pattern.search(request):
+				print(filename)
+				found = True
+		except (IOError, NtarException, UnicodeDecodeError) as e:
+			# IOError - not found, permissions, ...
+			# NtarException - bad format
+			print("evtgrep:", e, file=sys.stderr)
+			error = True
+except EOFError:
+	# thrown by input() - nothing more to read
+	pass
+except KeyboardInterrupt:
+	if sys.stdin.isatty():
+		print(file=sys.stderr) # newline after "^C"
+	exit(130)
+
+
+#### Status code
+
+if error:
+	exit(2)
+
+if not found:
+	exit(1)
+
+# else exit normally (0)
