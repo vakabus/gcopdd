@@ -1,16 +1,22 @@
 package cz.cuni.mff.d3s.blood.report;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.Deflater;
 
-public class NtarOutputStream {
+public class NtarOutputStream implements Closeable {
     private static final int DEFLATE_BUFFER_INITIAL_CAPACITY = 8192;
     private final OutputStream os;
 
     public NtarOutputStream(OutputStream os) {
         this.os = os;
+    }
+
+    @Override
+    public void close() throws IOException {
+        os.close();
     }
 
     public void set(String entryName, byte[] entryContent) throws IOException {

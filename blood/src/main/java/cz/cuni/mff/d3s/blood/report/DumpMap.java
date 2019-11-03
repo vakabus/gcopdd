@@ -21,8 +21,7 @@ public final class DumpMap {
     public final void dump(File reportDir, Manager.DumpConfig dumpConfig, long compilationIndex) {
         String hash = Miscellaneous.shortTextHash(dumpConfig.getCompilationUnitInfo(compilationIndex));
 
-        try {
-            NtarOutputStream dumpFile = DumpHelpers.createDumpFile(reportDir, hash);
+        try(NtarOutputStream dumpFile = DumpHelpers.createDumpFile(reportDir, hash)) {
 
             dumpCompilationRequestId(dumpFile, dumpConfig.getCompilationUnitInfo(compilationIndex));
             dumpTimingInformation(dumpFile, dumpConfig.getCompilationStart(), dumpConfig.getCompilationDuration());
