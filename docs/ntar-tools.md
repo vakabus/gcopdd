@@ -11,17 +11,19 @@ Both `aliases.sh` and `aliases.fish` contain (among others) the alias `ntar` -> 
 All of these commands are safe to use and produce meaningful output when used with dumps from `blood`.
 The disclaimers only apply to ntar files from external sources.
 
-### `ntar list <FILE>`
+For all subcommands, if `<FILE>` is omitted or `-`, read from stdin is attempted.
+
+### `ntar list [<FILE>]`
 Lists entries to stdout (one per line) in two columns: the first column contains the entry name and the second column contains its uncompressed size (in bytes, not utf8 characters).
 Depending on characters used in entry names, the output may be ambiguous, and is not intended to be parsed.
 A malicious escape character in entry name can disrupt the console.
 
-### `ntar dump <FILE>`
+### `ntar dump [<FILE>]`
 Dumps entries in human-readable format to stdout. For each entry, `=== entry_name ===` is printed, followed by newline, entry content, newline.
 Depending on characters used in entry names and contents, the output may be ambiguous, and is not intended to be parsed.
 Non-character entry contents or a malicious escape character in entry name can disrupt the console.
 
-### `ntar hexdump <FILE>`
+### `ntar hexdump [<FILE>]`
 Dumps entries in a human-readable format to stdout. For each entry, `=== entry_name ===` is printed, followed by newline and hexa-editor-like output.
 The first column is offset in hexadecimal, next are 16 hexadecimal byte values,
 then the same values in ASCII (non-ascii and control chars replaced with dots (`.`)), enclosed between `>` and `<`.
@@ -31,8 +33,11 @@ A malicious escape character in entry name can disrupt the console.
 ### `ntar xf <FILE> <DIR>`
 A parody of `tar xf`. Extracts entries to files in newly-created directory `<DIR>`.
 Replaces slashes (`/`) in names with underscores (`_`) and escapes leading dot (`.`) by prepending an underscore (`_`).
-Note that `xf` in ntar is a subcommand, not two individual options `x`, `f`.
+Note that `xf` in ntar is a subcommand, not two individual options `-x`, `-f`.
 Malicious control or quoting characters in entry name can make the output files hard (but not impossible (unless you use Windows)) to list, view, manipulate or delete.
+
+### `ntar x <DIR>`
+Similar to above, but reads from stdin. Equivalent to `ntar xf - <DIR>`.
 
 
 ## `ntar-fm` GUI
